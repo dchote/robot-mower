@@ -1,4 +1,4 @@
-# Raspberry Pi powered 3d printed robot mower
+# 3d printed robot mower
 
 ![assembled1](images/IMG_6063.JPG "3d printed robot mower")
 ![assembled2](images/IMG_6065.JPG "3d printed robot mower")
