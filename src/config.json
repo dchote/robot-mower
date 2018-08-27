@@ -1,0 +1,8 @@
+{
+  "apiServer": {
+    "listenAddress": ":8088"
+  },
+  "mower": {
+    "name": "MowPi"
+  }
+}
