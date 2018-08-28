@@ -53,7 +53,7 @@ func main() {
 
 	log.Printf("Loaded config: %+v", cfg)
 
-	staticAssets, err = rice.FindBox("api/frontend/dist")
+	staticAssets, err = rice.FindBox("frontend/dist")
 	if err != nil {
 		log.Fatalf("Static assets not found. Build them first.")
 	}
