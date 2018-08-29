@@ -85,13 +85,12 @@
     </v-toolbar>
     
     
-    <v-content>
-      <v-container>
+    <v-content class="cameraView">
+      <v-container fill-height>      
         <router-view></router-view>
       </v-container>
+      <status-bar></status-bar>
     </v-content>
-    
-    
   </v-app>
 </template>
 
@@ -110,3 +109,15 @@
     }
   }
 </script>
+  
+<!-- Add "scoped" attribute to limit CSS to this component only -->
+<style>
+  .cameraView {
+    background: url('https://pbs.twimg.com/profile_banners/193510313/1512135762/1500x500') no-repeat center center fixed; 
+    -webkit-background-size: cover;
+    -moz-background-size: cover;
+    -o-background-size: cover;
+    background-size: cover;
+  }
+  
+</style>

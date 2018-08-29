@@ -2,19 +2,21 @@
   <v-container fluid>
     <v-slide-y-transition mode="out-in">
       <v-layout column align-center>
-        Not yet implemented
+        <v-alert
+             :value="true"
+             color="error"
+             icon="warning"
+             outline
+           >
+             Not yet implemented.
+           </v-alert>
       </v-layout>
     </v-slide-y-transition>
   </v-container>
 </template>
 
 <script>
-  export default {
-    name: 'NotImplemented',
-    data: () => ({
-      
-    })
-  }
+  export default {}
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
