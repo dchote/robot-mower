@@ -1,12 +1,11 @@
 <template>
-  <v-container fluid>
+  <v-container fluid >
     <v-slide-y-transition mode="out-in">
-      <v-layout column align-center>
+      <v-layout column align-center >
         <v-alert
              :value="true"
              color="error"
              icon="warning"
-             outline
            >
              Not yet implemented.
            </v-alert>

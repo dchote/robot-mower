@@ -7,7 +7,7 @@
       fixed
       app
     >
-      <v-list dense>
+      <v-list>
         <template v-for="item in items">
           <v-layout
             v-if="item.heading"
@@ -42,7 +42,7 @@
               v-for="(child, i) in item.children"
               :key="i"
               @click="$router.push(child.route)"
-            >
+            router>
               <v-list-tile-action v-if="child.icon">
                 <v-icon>{{ child.icon }}</v-icon>
               </v-list-tile-action>
@@ -53,7 +53,7 @@
               </v-list-tile-content>
             </v-list-tile>
           </v-list-group>
-          <v-list-tile v-else :key="item.text" @click="$router.push(item.route)">
+          <v-list-tile v-else :key="item.text" @click="$router.push(item.route)" :to="item.route" router>
             <v-list-tile-action>
               <v-icon>{{ item.icon }}</v-icon>
             </v-list-tile-action>
@@ -69,14 +69,14 @@
     
     <v-toolbar
       :clipped-left="$vuetify.breakpoint.lgAndUp"
-      color="blue darken-4"
+      color="green darken-4"
       dark
       app
       fixed
     >
-      <v-toolbar-title style="width: 300px" class="ml-0 pl-3">
+      <v-toolbar-title style="width: 300px" class="ml-0">
         <v-toolbar-side-icon @click.stop="drawer = !drawer"></v-toolbar-side-icon>
-        <span class="hidden-sm-and-down">Robot Mower</span>
+        <span>Robot Mower</span>
       </v-toolbar-title>
       <v-spacer></v-spacer>
       <v-btn icon>
@@ -99,8 +99,8 @@
     data: () => ({
       drawer: null,
       items: [
-        { icon: 'control_camera', text: 'Control', route: 'control' },
-        { icon: 'map', text: 'Planner', route: 'planner' },
+        { icon: 'control_camera', text: 'Mower Control', route: 'control' },
+        { icon: 'map', text: 'Job Planner', route: 'planner' },
         { icon: 'settings', text: 'Settings', route: 'settings' }
       ]
     }),

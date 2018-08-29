@@ -1,32 +1,36 @@
 <template>
   <div class="statsContainer">
-    <v-layout align-center justify-end row fill-height>
-      <div class="stat grey lighten-4 elevation-2 text-xs-center">
-        <h5>Battery Voltage:</h5>
-        {{ voltage }}
+    <v-layout align-center justify-end row fill-height wrap>
+      <div class="stat black elevation-2 text-xs-center white--text">
+        <h5>Battery:</h5>
+        <span class="blue-grey--text text--lighten-3">{{ battery.voltage }}</span>
       </div>
-      <div class="stat grey lighten-4 elevation-2 text-xs-center">
+      <div class="stat black elevation-2 text-xs-center white--text">
+        <h5>Current:</h5>
+        <span class="blue-grey--text text--lighten-3">{{ battery.current }}</span>
+      </div>
+      <div class="stat black elevation-2 text-xs-center white--text">
         <h5>Compass:</h5>
-        {{ compass }}
+        <span class="blue-grey--text text--lighten-3">{{ compass.bearing }}</span>
       </div>
-      <div class="stat grey lighten-4 elevation-2 text-xs-center">
+      <div class="stat black elevation-2 text-xs-center white--text">
         <h5>GPS:</h5>
-        {{ gps }}
+        <span class="blue-grey--text text--lighten-3">{{ gps.coordinates }}</span>
       </div>
     </v-layout>
   </div>
 </template>
 
 <script>
+  import { mapState } from 'vuex'
+  
   export default {
     name: 'StatusBar',
-    data () {
-      return {
-        voltage: '24.1',
-        compass: 'NE',
-        gps: '40.780715, -78.007729'
-      }
-    }
+    computed: mapState({
+      battery: state => state.mower.battery,
+      compass: state => state.mower.compass,
+      gps: state => state.mower.gps,
+    })
   }
 </script>
 
@@ -35,14 +39,15 @@
   .statsContainer {
     position: fixed;
     height: 100px;
-    top: 54px;
+    top: 53px;
     right: 0;
   }
   .stat {
+    opacity: 0.8;
     min-height: 50px;
     min-width: 80px;
     margin: 10px;
     padding: 10px;
-
+    border-radius: 5px;
   }
 </style>

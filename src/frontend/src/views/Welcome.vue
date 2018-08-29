@@ -17,12 +17,7 @@
 </template>
 
 <script>
-  export default {
-    name: 'Welcome',
-    data: () => ({
-      
-    })
-  }
+  export default {}
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
