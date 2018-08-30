@@ -1,7 +1,7 @@
 <template>
     <v-layout align-end justify-center row fill-height>
       <v-card width="700px">
-        <v-flex xs12 hidden-md-and-up pl-4 pt-4 pr-4>
+        <v-flex xs12 hidden-md-and-up pl-5 pt-4 pr-5>
           <v-slider v-model="drive.speed" inverse-label label="Speed"></v-slider>
           <v-slider v-model="cutter.speed" inverse-label label="Cutter"></v-slider>
         </v-flex>
@@ -51,10 +51,7 @@
     data () {
       return {
         dialog: false,
-        
         movement: null,
-        speed: 100,
-        cutter: 75
       }
     },
     computed: mapState({

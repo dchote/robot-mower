@@ -3,6 +3,7 @@
     "listenAddress": ":8088"
   },
   "mower": {
-    "name": "MowPi"
+    "name": "MowPi",
+    "cameraDeviceID": 1
   }
 }

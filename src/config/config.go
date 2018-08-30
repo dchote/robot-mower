@@ -11,7 +11,8 @@ type ConfigStruct struct {
 		ListenAddress string `json:listenAddress`
 	} `json:apiServer`
 	Mower struct {
-		Name string `json:name`
+		Name           string `json:name`
+		CameraDeviceID int    `cameraDeviceID`
 	} `json:mower`
 }
 

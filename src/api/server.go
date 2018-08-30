@@ -2,15 +2,15 @@ package api
 
 import (
 	"context"
-	//"errors"
 	"log"
 	"net/http"
-	//"strings"
-	//"sync"
 	"time"
 
 	"github.com/dchote/robot-mower/src/api/handlers"
 	"github.com/dchote/robot-mower/src/config"
+
+	"github.com/dchote/robot-mower/src/control"
+	"github.com/dchote/robot-mower/src/vision"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/labstack/echo"
@@ -66,6 +66,10 @@ func StartServer(cfg config.ConfigStruct, assets *rice.Box) {
 	// setup API routes
 	e.GET("/v1/health", handlers.Health())
 	e.GET("/v1/config", handlers.Config())
+	e.GET("/v1/endpoints", handlers.Endpoints())
+
+	e.GET("/camera", echo.WrapHandler(vision.Stream))
+	e.GET("/ws", control.WebSocketConnection())
 
 	log.Println("starting server on ", cfg.APIServer.ListenAddress)
 	e.Start(cfg.APIServer.ListenAddress)

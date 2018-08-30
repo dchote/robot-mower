@@ -85,7 +85,7 @@
     </v-toolbar>
     
     
-    <v-content class="cameraView">
+    <v-content class="cameraView" v-bind:style="{ background:cameraImage }">
       <v-container fill-height>      
         <router-view></router-view>
       </v-container>
@@ -95,6 +95,8 @@
 </template>
 
 <script>
+  import { mapState } from 'vuex'
+  
   export default {
     data: () => ({
       drawer: null,
@@ -104,8 +106,14 @@
         { icon: 'settings', text: 'Settings', route: 'settings' }
       ]
     }),
+    computed: mapState({
+      cameraImage: state => state.endpoints.endpoints.camera
+    }),
     props: {
       source: String
+    },
+    created () {
+      this.$store.dispatch('endpoints/getEndpoints')
     }
   }
 </script>

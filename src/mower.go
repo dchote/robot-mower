@@ -1,23 +1,22 @@
 package main
 
 import (
-	//"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
-	//"runtime"
-	//"sync"
 	"syscall"
 	"time"
 
 	"github.com/dchote/robot-mower/src/api"
 	"github.com/dchote/robot-mower/src/config"
+	"github.com/dchote/robot-mower/src/control"
+	"github.com/dchote/robot-mower/src/vision"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/docopt/docopt-go"
 )
 
-const VERSION = "0.0.COW💩"
+const VERSION = "0.0.1"
 
 var (
 	cfg          *config.ConfigStruct
@@ -57,6 +56,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Static assets not found. Build them first.")
 	}
+
+	vision.StartVision()
+	defer vision.StopVision()
+
+	control.StartController()
+	defer control.StopController()
 
 	go api.StartServer(*cfg, staticAssets)
 
