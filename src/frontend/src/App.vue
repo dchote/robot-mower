@@ -85,8 +85,8 @@
     </v-toolbar>
     
     
-    <v-content class="cameraView" v-bind:style="{ background:cameraImage }">
-      <v-container fill-height>      
+    <v-content v-bind:style="{ background: cameraBackgroundCSS, backgroundSize: backgroundSize }">
+      <v-container fill-height>
         <router-view></router-view>
       </v-container>
       <status-bar></status-bar>
@@ -95,10 +95,11 @@
 </template>
 
 <script>
-  import { mapState } from 'vuex'
+  import { mapGetters } from 'vuex'
   
   export default {
     data: () => ({
+      backgroundSize: 'cover',
       drawer: null,
       items: [
         { icon: 'control_camera', text: 'Mower Control', route: 'control' },
@@ -106,9 +107,9 @@
         { icon: 'settings', text: 'Settings', route: 'settings' }
       ]
     }),
-    computed: mapState({
-      cameraImage: state => state.endpoints.endpoints.camera
-    }),
+    computed: {
+      ...mapGetters('endpoints', ['cameraBackgroundCSS'])
+    },
     props: {
       source: String
     },
@@ -120,12 +121,4 @@
   
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style>
-  .cameraView {
-    background: url('https://pbs.twimg.com/profile_banners/193510313/1512135762/1500x500') no-repeat center center fixed; 
-    -webkit-background-size: cover;
-    -moz-background-size: cover;
-    -o-background-size: cover;
-    background-size: cover;
-  }
-  
 </style>
