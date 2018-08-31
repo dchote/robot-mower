@@ -3,8 +3,10 @@ import api from '../../api'
 // initial state
 const state = {
   urls: {
-    camera: "https://media.giphy.com/media/3o6vXRxrhj7Ov94Gbu/source.gif",
-    ws: ""
+    isFallbackValues: false,
+    
+    camera: '',
+    ws: ''
   }
 }
 
@@ -29,7 +31,7 @@ const mutations = {
   setEndpoints(state, endpoints) {
     state.urls = endpoints.data
     
-    console.log("endpoints:", state.urls)
+    console.log('endpoints:', state.urls)
   }
   
 }

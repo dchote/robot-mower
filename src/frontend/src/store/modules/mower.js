@@ -2,18 +2,18 @@
 const state = {
   battery: {
     status: null,
-    voltage: '24.3',
-    current: '1.4'
+    voltage: 'unknown',
+    current: 'unknown'
   },
   
   compass: {
     status: null,
-    bearing: 'NE'
+    bearing: 'unknown'
   },
   
   gps: {
     status: null,
-    coordinates: '40.780715, -78.007729'
+    coordinates: 'unknown'
   },
   
   
@@ -33,7 +33,21 @@ const getters = {}
 const actions = {}
 
 // mutations
-const mutations = {}
+const mutations = {
+  setMowerDriveSpeed(state, value) {
+    state.drive.speed = value
+  },
+  setMowerCutterSpeed(state, value) {
+    state.cutter.speed = value
+  },
+  setMowerState(state, event) {
+    state.battery = event.battery
+    state.compass = event.compass
+    state.gps = event.gps
+    state.drive = event.drive
+    state.cutter = event.cutter
+  }
+}
 
 export default {
   namespaced: true,

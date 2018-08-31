@@ -4001,6 +4001,10 @@ lodash.camelcase@^4.3.0:
   version "4.3.0"
   resolved "https://registry.yarnpkg.com/lodash.camelcase/-/lodash.camelcase-4.3.0.tgz#b28aa6288a2b9fc651035c7711f65ab6190331a6"
 
+lodash.clonedeep@^4.5.0:
+  version "4.5.0"
+  resolved "https://registry.yarnpkg.com/lodash.clonedeep/-/lodash.clonedeep-4.5.0.tgz#e23f3f9c4f8fbdde872529c1071857a086e5ccef"
+
 lodash.debounce@^4.0.8:
   version "4.0.8"
   resolved "https://registry.yarnpkg.com/lodash.debounce/-/lodash.debounce-4.0.8.tgz#82d79bff30a67c4005ffd5e2515300ad9ca4d7af"
@@ -6560,6 +6564,10 @@ vue-loader@^15.3.0:
     vue-hot-reload-api "^2.3.0"
     vue-style-loader "^4.1.0"
 
+vue-native-websocket@^2.0.9:
+  version "2.0.9"
+  resolved "https://registry.yarnpkg.com/vue-native-websocket/-/vue-native-websocket-2.0.9.tgz#2f94730fc0584b92aca6663a94e2bf05c7e93a00"
+
 vue-router@^3.0.1:
   version "3.0.1"
   resolved "https://registry.yarnpkg.com/vue-router/-/vue-router-3.0.1.tgz#d9b05ad9c7420ba0f626d6500d693e60092cc1e9"
@@ -6589,6 +6597,12 @@ vue@^2.5.17:
 vuetify@^1.0.19:
   version "1.1.14"
   resolved "https://registry.yarnpkg.com/vuetify/-/vuetify-1.1.14.tgz#a45b6cd659e31edc8ca8dd2094562f1763f1f223"
+
+vuex-pathify@^1.1.3:
+  version "1.1.3"
+  resolved "https://registry.yarnpkg.com/vuex-pathify/-/vuex-pathify-1.1.3.tgz#233c96356e27d1e3d1c23e1ee444c926e4d74505"
+  dependencies:
+    lodash.clonedeep "^4.5.0"
 
 vuex@^3.0.1:
   version "3.0.1"

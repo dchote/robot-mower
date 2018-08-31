@@ -30,12 +30,11 @@ func StartServer(cfg config.ConfigStruct, assets *rice.Box) {
 	e = echo.New()
 	e.HideBanner = true
 	e.Server.ReadTimeout = 10 * time.Second
-	e.Server.WriteTimeout = 30 * time.Second
+	e.Server.WriteTimeout = 0
 
 	// setup middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	e.Use(middleware.BodyLimit("32M"))
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		Level: 5,
 	}))
@@ -69,10 +68,10 @@ func StartServer(cfg config.ConfigStruct, assets *rice.Box) {
 	e.GET("/v1/endpoints", handlers.Endpoints())
 
 	e.GET("/camera", echo.WrapHandler(vision.Stream))
-	e.GET("/ws", control.WebSocketConnection())
+	e.GET("/ws", control.WebSocketConnection)
 
 	log.Println("starting server on ", cfg.APIServer.ListenAddress)
-	e.Start(cfg.APIServer.ListenAddress)
+	e.Logger.Fatal(e.Start(cfg.APIServer.ListenAddress))
 }
 
 func StopServer() {

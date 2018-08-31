@@ -8,11 +8,11 @@ import (
 
 type ConfigStruct struct {
 	APIServer struct {
-		ListenAddress string `json:listenAddress`
-	} `json:apiServer`
+		ListenAddress string `json:"listenAddress"`
+	} `json:"apiServer"`
 	Mower struct {
-		Name           string `json:name`
-		CameraDeviceID int    `cameraDeviceID`
+		Name           string `json:"name"`
+		CameraDeviceID int    `json:"cameraDeviceID"`
 	} `json:mower`
 }
 

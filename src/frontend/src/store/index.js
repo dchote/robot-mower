@@ -8,13 +8,22 @@ Vue.use(Vuex)
 
 const debug = process.env.NODE_ENV !== 'production'
 
-// A Vuex instance is created by combining the state, mutations, actions,
-// and getters.
 export default new Vuex.Store({
+  plugins: [ ],
   modules: {
     endpoints,
     mower,
   },
-  strict: debug,
-  plugins: []
+  mutations:{
+      SOCKET_ONOPEN (state, event)  {
+        console.log("ws open", state, event)
+      },
+      SOCKET_ONCLOSE (state, event)  {
+        console.log("ws close", state, event)
+      },
+      SOCKET_ONERROR (state, event)  {
+        console.log("ws error:", state, event)
+      },
+    },
+  strict: debug
 })

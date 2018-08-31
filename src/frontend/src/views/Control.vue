@@ -2,12 +2,12 @@
     <v-layout align-end justify-center row fill-height>
       <v-card width="700px">
         <v-flex xs12 hidden-md-and-up pl-5 pt-4 pr-5>
-          <v-slider v-model="drive.speed" inverse-label label="Speed"></v-slider>
-          <v-slider v-model="cutter.speed" inverse-label label="Cutter"></v-slider>
+          <v-slider v-model="driveSpeed" inverse-label label="Speed"></v-slider>
+          <v-slider v-model="cutterSpeed" inverse-label label="Cutter"></v-slider>
         </v-flex>
         <v-bottom-nav :value="true" :active.sync="movement">
             <v-flex md3 hidden-sm-and-down mr-1 ml-4 mt-2 pt-1>
-              <v-slider v-model="drive.speed" inverse-label label="Speed"></v-slider>
+              <v-slider v-model="driveSpeed" inverse-label label="Speed"></v-slider>
             </v-flex>
             <v-layout md3>
               <v-flex xs3>
@@ -36,16 +36,14 @@
               </v-flex>
             </v-layout>
             <v-flex md3 hidden-sm-and-down ml-1 mr-4 mt-2 pt-1>
-              <v-slider v-model="cutter.speed" label="Cutter"></v-slider>
+              <v-slider v-model="cutterSpeed" label="Cutter"></v-slider>
             </v-flex>
         </v-bottom-nav>
       </v-card>
     </v-layout>
 </template>
 
-<script>
-  import { mapState } from 'vuex'
-  
+<script>  
   export default {
     name: 'ControlPage',
     data () {
@@ -54,10 +52,29 @@
         movement: null,
       }
     },
-    computed: mapState({
-      drive: state => state.mower.drive,
-      cutter: state => state.mower.cutter,
-    })
+    computed: {
+      driveSpeed: {
+        get() {
+          return this.$store.state.mower.drive.speed
+        },
+        set(value) {
+          this.$store.commit('mower/setMowerDriveSpeed', value)
+          this.$socket.sendObj({'method': 'setMowerDriveSpeed', 'value': value})
+        }
+      },
+      cutterSpeed: {
+        get() {
+          return this.$store.state.mower.cutter.speed
+        },
+        set(value) {
+          this.$store.commit('mower/setMowerCutterSpeed', value)
+          this.$socket.sendObj({'method': 'setMowerCutterSpeed', 'value': value})
+        }
+      }
+    },
+    methods: {
+      
+    }
   }
 </script>
 

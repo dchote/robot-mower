@@ -2,6 +2,7 @@ package vision
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/dchote/robot-mower/src/config"
 
@@ -43,6 +44,9 @@ func CaptureVideo() {
 	defer img.Close()
 
 	for {
+		// lessen the load a little
+		time.Sleep(100 * time.Millisecond)
+
 		if ok := camera.Read(&img); !ok {
 			fmt.Printf("Device closed: %v\n", deviceID)
 			return
