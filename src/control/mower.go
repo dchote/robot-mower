@@ -17,7 +17,8 @@ type MowerStateStruct struct {
 		Coordinates string `json:"coordinates"`
 	} `json:"gps"`
 	Drive struct {
-		Speed int `json:"speed"`
+		Speed     int    `json:"speed"`
+		Direction string `json:"direction"`
 	} `json:"drive"`
 	Cutter struct {
 		Speed int `json:"speed"`

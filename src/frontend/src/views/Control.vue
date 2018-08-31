@@ -5,31 +5,31 @@
           <v-slider v-model="driveSpeed" inverse-label label="Speed"></v-slider>
           <v-slider v-model="cutterSpeed" inverse-label label="Cutter"></v-slider>
         </v-flex>
-        <v-bottom-nav :value="true" :active.sync="movement">
+        <v-bottom-nav :value="true" :active.sync="direction">
             <v-flex md3 hidden-sm-and-down mr-1 ml-4 mt-2 pt-1>
               <v-slider v-model="driveSpeed" inverse-label label="Speed"></v-slider>
             </v-flex>
             <v-layout md3>
               <v-flex xs3>
-                <v-btn color="teal" value="left" flat>
+                <v-btn color="teal" value="left" flat v-on:mousedown="requestDirectionStart('left')"  v-on:mouseup="requestDirectionStop('left')">
                   <span>Left</span>
                   <v-icon>arrow_back</v-icon>
                 </v-btn>
               </v-flex>
               <v-flex xs3>
-                <v-btn color="teal" value="forward" flat>
+                <v-btn color="teal" value="forward" flat v-on:mousedown="requestDirectionStart('forward')"  v-on:mouseup="requestDirectionStop('forward')">
                   <span>Forward</span>
                   <v-icon>arrow_upward</v-icon>
                 </v-btn>
               </v-flex>
               <v-flex xs3>
-                <v-btn color="teal" value="backward" flat>
+                <v-btn color="teal" value="backward" flat v-on:mousedown="requestDirectionStart('backward')"  v-on:mouseup="requestDirectionStop('backward')">
                   <span>Backward</span>
                   <v-icon>arrow_downward</v-icon>
                 </v-btn>
               </v-flex>
               <v-flex xs3>
-                <v-btn color="teal" value="right" flat>
+                <v-btn color="teal" value="right" flat v-on:mousedown="requestDirectionStart('right')"  v-on:mouseup="requestDirectionStop('right')">
                   <span>Right</span>
                   <v-icon>arrow_forward</v-icon>
                 </v-btn>
@@ -49,7 +49,6 @@
     data () {
       return {
         dialog: false,
-        movement: null,
       }
     },
     computed: {
@@ -59,7 +58,7 @@
         },
         set(value) {
           this.$store.commit('mower/setMowerDriveSpeed', value)
-          this.$socket.sendObj({'method': 'setMowerDriveSpeed', 'value': value})
+          this.$socket.sendObj({'method': 'setMowerDriveSpeed', 'value': value.toString()})
         }
       },
       cutterSpeed: {
@@ -68,12 +67,22 @@
         },
         set(value) {
           this.$store.commit('mower/setMowerCutterSpeed', value)
-          this.$socket.sendObj({'method': 'setMowerCutterSpeed', 'value': value})
+          this.$socket.sendObj({'method': 'setMowerCutterSpeed', 'value': value.toString()})
+        }
+      },
+      direction: {
+        get() {
+          return this.$store.state.mower.drive.direction
         }
       }
     },
     methods: {
-      
+      requestDirectionStart(value) {
+        this.$socket.sendObj({'method': 'requestDirectionStart', 'value': value})
+      },
+      requestDirectionStop(value) {
+        this.$socket.sendObj({'method': 'requestDirectionStop', 'value': value})
+      }
     }
   }
 </script>

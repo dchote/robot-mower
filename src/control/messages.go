@@ -8,5 +8,5 @@ type StateMessage struct {
 
 type CommandMessage struct {
 	Method string `json:"method"`
-	Value  int    `json:"value"`
+	Value  string `json:"value"`
 }

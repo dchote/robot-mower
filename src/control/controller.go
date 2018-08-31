@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,10 +14,7 @@ import (
 )
 
 const (
-	writeWait      = 10 * time.Second
-	pongWait       = 60 * time.Second
-	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 512
+	publishInterval = 2
 )
 
 type MowerControllerStruct struct {
@@ -24,6 +22,8 @@ type MowerControllerStruct struct {
 	register   chan *wsClientStruct
 	unregister chan *wsClientStruct
 	commands   chan []byte
+
+	publishTicker *time.Ticker
 }
 
 type wsClientStruct struct {
@@ -55,19 +55,29 @@ func StartController() {
 	MowerState.GPS.Coordinates = "40.780715, -78.007729"
 
 	MowerState.Drive.Speed = 100
+	MowerState.Drive.Direction = "stopped"
 
 	MowerState.Cutter.Speed = 45
 
 	// mower controller
 	MowerController = &MowerControllerStruct{
-		wsClients:  make(map[*wsClientStruct]bool),
-		register:   make(chan *wsClientStruct),
-		unregister: make(chan *wsClientStruct),
-		commands:   make(chan []byte),
+		wsClients:     make(map[*wsClientStruct]bool),
+		register:      make(chan *wsClientStruct),
+		unregister:    make(chan *wsClientStruct),
+		commands:      make(chan []byte),
+		publishTicker: time.NewTicker(publishInterval * time.Second),
 	}
 
 	go MowerController.run()
-	go PublishState()
+
+	go func() {
+		for {
+			select {
+			case <-MowerController.publishTicker.C:
+				PublishState()
+			}
+		}
+	}()
 }
 
 func StopController() {
@@ -75,19 +85,17 @@ func StopController() {
 }
 
 func PublishState() {
-	for {
-		message, _ := json.Marshal(StateMessage{MowerStateStruct: MowerState, Namespace: "mower", Mutation: "setMowerState"})
+	//log.Println("publishing state")
 
-		for client := range MowerController.wsClients {
-			select {
-			case client.send <- message:
-			default:
-				close(client.send)
-				delete(MowerController.wsClients, client)
-			}
+	message, _ := json.Marshal(StateMessage{MowerStateStruct: MowerState, Namespace: "mower", Mutation: "setMowerState"})
+
+	for client := range MowerController.wsClients {
+		select {
+		case client.send <- message:
+		default:
+			close(client.send)
+			delete(MowerController.wsClients, client)
 		}
-
-		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -109,13 +117,23 @@ func (m *MowerControllerStruct) run() {
 			err := json.Unmarshal(message, &commandMessage)
 			if err != nil {
 				log.Println("error decoding json")
-				return
-			}
+			} else {
+				// we want to stay in this processing loop, so never return out
 
-			if strings.Compare(commandMessage.Method, "setMowerDriveSpeed") == 0 {
-				MowerState.Drive.Speed = commandMessage.Value
-			} else if strings.Compare(commandMessage.Method, "setMowerCutterSpeed") == 0 {
-				MowerState.Cutter.Speed = commandMessage.Value
+				if strings.Compare(commandMessage.Method, "setMowerDriveSpeed") == 0 {
+					MowerState.Drive.Speed, _ = strconv.Atoi(commandMessage.Value)
+				} else if strings.Compare(commandMessage.Method, "setMowerCutterSpeed") == 0 {
+					MowerState.Cutter.Speed, _ = strconv.Atoi(commandMessage.Value)
+				} else if strings.Compare(commandMessage.Method, "requestDirectionStart") == 0 {
+					// TODO actual callout logic, right now we'll just update state
+					MowerState.Drive.Direction = commandMessage.Value
+				} else if strings.Compare(commandMessage.Method, "requestDirectionStop") == 0 {
+					// TODO actual callout logic, right now we'll just update state
+					MowerState.Drive.Direction = "stopped"
+				}
+
+				// send updated state immediately
+				go PublishState()
 			}
 		}
 	}
@@ -144,10 +162,6 @@ func (c *wsClientStruct) readWebSocket() {
 		c.conn.Close()
 	}()
 
-	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
-
 	for {
 		_, message, err := c.conn.ReadMessage()
 
@@ -163,13 +177,6 @@ func (c *wsClientStruct) readWebSocket() {
 }
 
 func (c *wsClientStruct) writeWebSocket() {
-	ticker := time.NewTicker(pingPeriod)
-
-	defer func() {
-		ticker.Stop()
-		c.conn.Close()
-	}()
-
 	for {
 		select {
 		case message, ok := <-c.send:
@@ -187,11 +194,6 @@ func (c *wsClientStruct) writeWebSocket() {
 			n := len(c.send)
 			for i := 0; i < n; i++ {
 				c.conn.WriteMessage(websocket.TextMessage, <-c.send)
-			}
-		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				return
 			}
 		}
 	}

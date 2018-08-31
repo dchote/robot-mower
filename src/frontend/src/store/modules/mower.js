@@ -18,7 +18,8 @@ const state = {
   
   
   drive: {
-    speed: 100
+    speed: 100,
+    direction: null
   },
   
   cutter: {
@@ -36,6 +37,9 @@ const actions = {}
 const mutations = {
   setMowerDriveSpeed(state, value) {
     state.drive.speed = value
+  },
+  setDirection(state, value) {
+    state.drive.direction = value
   },
   setMowerCutterSpeed(state, value) {
     state.cutter.speed = value
