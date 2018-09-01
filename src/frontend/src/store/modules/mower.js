@@ -1,19 +1,40 @@
 // initial state
 const state = {
+  platform: {
+    hostname: null,
+    operating_system: null,
+    platform: null,
+    load_average: {
+      load1: null,
+      load5: null,
+      load15: null
+    },
+    memory: {
+      total: null,
+      available: null
+    },
+    disk: {
+      total: null,
+      free: null
+    }
+  },
+  
   battery: {
     status: null,
-    voltage: 'unknown',
-    current: 'unknown'
+    voltage_nominal: null,
+    voltage_warn: null,
+    voltage: null,
+    current: null
   },
   
   compass: {
     status: null,
-    bearing: 'unknown'
+    bearing: null
   },
   
   gps: {
     status: null,
-    coordinates: 'unknown'
+    coordinates: null
   },
   
   
@@ -45,11 +66,14 @@ const mutations = {
     state.cutter.speed = value
   },
   setMowerState(state, event) {
+    state.platform = event.platform
     state.battery = event.battery
     state.compass = event.compass
     state.gps = event.gps
     state.drive = event.drive
     state.cutter = event.cutter
+    
+    console.log(event)
   }
 }
 

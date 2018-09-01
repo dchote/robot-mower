@@ -1,8 +1,8 @@
 package control
 
 import (
-	//"fmt"
 	"encoding/json"
+	//"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -11,6 +11,11 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo"
+
+	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/host"
+	"github.com/shirou/gopsutil/load"
+	"github.com/shirou/gopsutil/mem"
 )
 
 const (
@@ -44,8 +49,28 @@ func StartController() {
 	// build default state
 	MowerState = new(MowerStateStruct)
 
+	sysInfo, _ := host.Info()
+	MowerState.Platform.Hostname = sysInfo.Hostname
+	MowerState.Platform.OperatingSystem = sysInfo.OS
+	MowerState.Platform.Platform = sysInfo.Platform
+
+	loadInfo, _ := load.Avg()
+	MowerState.Platform.LoadAverage.Load1 = loadInfo.Load1
+	MowerState.Platform.LoadAverage.Load5 = loadInfo.Load5
+	MowerState.Platform.LoadAverage.Load15 = loadInfo.Load15
+
+	memInfo, _ := mem.VirtualMemory()
+	MowerState.Platform.MemoryUsage.Total = memInfo.Total
+	MowerState.Platform.MemoryUsage.Available = memInfo.Available
+
+	diskInfo, _ := disk.Usage("/")
+	MowerState.Platform.DiskUsage.Total = diskInfo.Total
+	MowerState.Platform.DiskUsage.Free = diskInfo.Free
+
 	MowerState.Battery.Status = "Unknown"
-	MowerState.Battery.Voltage = 24.1
+	MowerState.Battery.VoltageNominal = 24.3
+	MowerState.Battery.VoltageWarn = 23.0
+	MowerState.Battery.Voltage = 23.5
 	MowerState.Battery.Current = 0.1
 
 	MowerState.Compass.Status = "Unknown"
