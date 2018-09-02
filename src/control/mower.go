@@ -12,6 +12,18 @@ type MowerStateStruct struct {
 			Load5  float64 `json:"load5"`
 			Load15 float64 `json:"load15"`
 		} `json:"load_average"`
+		CPULoad struct {
+			Count int     `json:"count"`
+			Total float64 `json:"total"`
+			Core1 float64 `json:"core_1"`
+			Core2 float64 `json:"core_2"`
+			Core3 float64 `json:"core_3"`
+			Core4 float64 `json:"core_4"`
+			Core5 float64 `json:"core_5"`
+			Core6 float64 `json:"core_6"`
+			Core7 float64 `json:"core_7"`
+			Core8 float64 `json:"core_8"`
+		} `json:"cpu"`
 		MemoryUsage struct {
 			Total     uint64 `json:"total"`
 			Available uint64 `json:"available"`

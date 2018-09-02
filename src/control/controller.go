@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo"
 
+	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/load"
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	publishInterval = 2
+	publishInterval = 1
 )
 
 type MowerControllerStruct struct {
@@ -49,10 +50,69 @@ func StartController() {
 	// build default state
 	MowerState = new(MowerStateStruct)
 
+	UpdateMowerState()
+
+	// mower controller
+	MowerController = &MowerControllerStruct{
+		wsClients:     make(map[*wsClientStruct]bool),
+		register:      make(chan *wsClientStruct),
+		unregister:    make(chan *wsClientStruct),
+		commands:      make(chan []byte),
+		publishTicker: time.NewTicker(publishInterval * time.Second),
+	}
+
+	go MowerController.run()
+
+	go func() {
+		for {
+			select {
+			case <-MowerController.publishTicker.C:
+				UpdateMowerState()
+				PublishState()
+			}
+		}
+	}()
+}
+
+func StopController() {
+
+}
+
+func UpdateMowerState() {
 	sysInfo, _ := host.Info()
 	MowerState.Platform.Hostname = sysInfo.Hostname
 	MowerState.Platform.OperatingSystem = sysInfo.OS
 	MowerState.Platform.Platform = sysInfo.Platform
+
+	MowerState.Platform.CPULoad.Count, _ = cpu.Counts(false)
+
+	cpuLoad, _ := cpu.Percent(time.Second, false)
+	MowerState.Platform.CPULoad.Total = cpuLoad[0]
+
+	perCPU, _ := cpu.Percent(time.Second, true)
+	// TODO do this better, this is a hax but I dont know the right way to do it right now.
+	MowerState.Platform.CPULoad.Core1 = perCPU[0]
+	if MowerState.Platform.CPULoad.Count >= 2 {
+		MowerState.Platform.CPULoad.Core2 = perCPU[1]
+	}
+	if MowerState.Platform.CPULoad.Count >= 3 {
+		MowerState.Platform.CPULoad.Core3 = perCPU[2]
+	}
+	if MowerState.Platform.CPULoad.Count >= 4 {
+		MowerState.Platform.CPULoad.Core4 = perCPU[3]
+	}
+	if MowerState.Platform.CPULoad.Count >= 5 {
+		MowerState.Platform.CPULoad.Core5 = perCPU[4]
+	}
+	if MowerState.Platform.CPULoad.Count >= 6 {
+		MowerState.Platform.CPULoad.Core6 = perCPU[5]
+	}
+	if MowerState.Platform.CPULoad.Count >= 7 {
+		MowerState.Platform.CPULoad.Core7 = perCPU[6]
+	}
+	if MowerState.Platform.CPULoad.Count >= 8 {
+		MowerState.Platform.CPULoad.Core8 = perCPU[7]
+	}
 
 	loadInfo, _ := load.Avg()
 	MowerState.Platform.LoadAverage.Load1 = loadInfo.Load1
@@ -83,30 +143,6 @@ func StartController() {
 	MowerState.Drive.Direction = "stopped"
 
 	MowerState.Cutter.Speed = 45
-
-	// mower controller
-	MowerController = &MowerControllerStruct{
-		wsClients:     make(map[*wsClientStruct]bool),
-		register:      make(chan *wsClientStruct),
-		unregister:    make(chan *wsClientStruct),
-		commands:      make(chan []byte),
-		publishTicker: time.NewTicker(publishInterval * time.Second),
-	}
-
-	go MowerController.run()
-
-	go func() {
-		for {
-			select {
-			case <-MowerController.publishTicker.C:
-				PublishState()
-			}
-		}
-	}()
-}
-
-func StopController() {
-
 }
 
 func PublishState() {

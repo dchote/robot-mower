@@ -8,6 +8,20 @@
         </span>
       </div>
       <div class="stat hidden-sm-and-down black elevation-2 text-xs-center white--text">
+        <h5>CPU:</h5>
+        
+        <v-progress-linear v-for="cpu in cpuCoreUtilization(platform.cpu)"
+              :bind="platform.cpu[cpu.key]"
+              :key="cpu.id"
+              :size="42"
+              :width="2"
+              :value="cpu.value"
+              color="teal"
+        >
+        </v-progress-linear>
+        
+      </div>
+      <div class="stat hidden-sm-and-down black elevation-2 text-xs-center white--text">
         <h5>Memory Free:</h5>
         <v-progress-linear
               :size="42"
@@ -44,7 +58,7 @@
       </div>
       <div class="stat black elevation-2 text-xs-center white--text">
         <h5>Current:</h5>
-        <span class="blue-grey--text text--lighten-3">{{ battery.current }}</span>
+        <span class="blue-grey--text text--lighten-3">{{ battery.current }}A</span>
       </div>
       <div class="stat black elevation-2 text-xs-center white--text">
         <h5>Compass:</h5>
@@ -75,6 +89,18 @@
           return Math.round((free / total) * 100)
         }
         return 0
+      },
+      cpuCoreUtilization(cpu) {
+        if (cpu) {
+          var x
+          var cores = []
+          for (x = 1; x <= cpu.count; x++) {
+            var key = 'core_' + x
+            cores.push({id: x, value: cpu[key], key: key})
+          }
+          return cores;
+        }
+        return null
       }
     }
   }

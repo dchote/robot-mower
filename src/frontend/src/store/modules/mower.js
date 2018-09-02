@@ -9,6 +9,18 @@ const state = {
       load5: null,
       load15: null
     },
+    cpu: {
+      count: null,
+      total: null,
+      core_1: null,
+      core_2: null,
+      core_3: null,
+      core_4: null,
+      core_5: null,
+      core_6: null,
+      core_7: null,
+      core_8: null,
+    },
     memory: {
       total: null,
       available: null
