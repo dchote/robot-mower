@@ -12,6 +12,12 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo"
 
+	"gobot.io/x/gobot"
+	//"gobot.io/x/gobot/api"
+	//"gobot.io/x/gobot/drivers/gpio"
+	"gobot.io/x/gobot/drivers/i2c"
+	"gobot.io/x/gobot/platforms/raspi"
+
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/host"
@@ -24,12 +30,14 @@ const (
 )
 
 type MowerControllerStruct struct {
-	wsClients  map[*wsClientStruct]bool
-	register   chan *wsClientStruct
-	unregister chan *wsClientStruct
-	commands   chan []byte
+	wsClients    map[*wsClientStruct]bool
+	wsRegister   chan *wsClientStruct
+	wsUnregister chan *wsClientStruct
+	wsCommands   chan []byte
 
-	publishTicker *time.Ticker
+	wsPublishTicker *time.Ticker
+
+	robotPlatform *gobot.Robot
 }
 
 type wsClientStruct struct {
@@ -50,40 +58,65 @@ func StartController() {
 	// build default state
 	MowerState = new(MowerStateStruct)
 
-	UpdateMowerState()
+	// initialize the hardware platform devices
+	r := raspi.NewAdaptor()
+	ina := i2c.NewINA3221Driver(r)
+
+	robotWork := func() {
+		// gobot control & GPIO control logic here
+	}
+
+	InitialMowerState()
+	UpdateSystemState()
 
 	// mower controller
 	MowerController = &MowerControllerStruct{
-		wsClients:     make(map[*wsClientStruct]bool),
-		register:      make(chan *wsClientStruct),
-		unregister:    make(chan *wsClientStruct),
-		commands:      make(chan []byte),
-		publishTicker: time.NewTicker(publishInterval * time.Second),
+		wsClients:    make(map[*wsClientStruct]bool),
+		wsRegister:   make(chan *wsClientStruct),
+		wsUnregister: make(chan *wsClientStruct),
+		wsCommands:   make(chan []byte),
+
+		wsPublishTicker: time.NewTicker(publishInterval * time.Second),
+
+		robotPlatform: gobot.NewRobot("Mower",
+			[]gobot.Connection{r},
+			[]gobot.Device{ina},
+			robotWork),
 	}
 
-	go MowerController.run()
-
-	go func() {
-		for {
-			select {
-			case <-MowerController.publishTicker.C:
-				UpdateMowerState()
-				PublishState()
-			}
-		}
-	}()
+	go MowerController.wsClientLoop()
+	go wsPublishLoop()
 }
 
 func StopController() {
 
 }
 
-func UpdateMowerState() {
+func InitialMowerState() {
 	sysInfo, _ := host.Info()
 	MowerState.Platform.Hostname = sysInfo.Hostname
 	MowerState.Platform.OperatingSystem = sysInfo.OS
 	MowerState.Platform.Platform = sysInfo.Platform
 
+	MowerState.Battery.Status = "Unknown"
+	MowerState.Battery.VoltageNominal = 24.3
+	MowerState.Battery.VoltageWarn = 23.0
+	MowerState.Battery.Voltage = 23.5
+	MowerState.Battery.Current = 0.1
+
+	MowerState.Compass.Status = "Unknown"
+	MowerState.Compass.Bearing = "NE"
+
+	MowerState.GPS.Status = "Unknown"
+	MowerState.GPS.Coordinates = "40.780715, -78.007729"
+
+	MowerState.Drive.Speed = 100
+	MowerState.Drive.Direction = "stopped"
+
+	MowerState.Cutter.Speed = 0
+}
+
+func UpdateSystemState() {
 	MowerState.Platform.CPULoad.Count, _ = cpu.Counts(false)
 
 	cpuLoad, _ := cpu.Percent(time.Second, false)
@@ -126,26 +159,19 @@ func UpdateMowerState() {
 	diskInfo, _ := disk.Usage("/")
 	MowerState.Platform.DiskUsage.Total = diskInfo.Total
 	MowerState.Platform.DiskUsage.Free = diskInfo.Free
-
-	MowerState.Battery.Status = "Unknown"
-	MowerState.Battery.VoltageNominal = 24.3
-	MowerState.Battery.VoltageWarn = 23.0
-	MowerState.Battery.Voltage = 23.5
-	MowerState.Battery.Current = 0.1
-
-	MowerState.Compass.Status = "Unknown"
-	MowerState.Compass.Bearing = "NE"
-
-	MowerState.GPS.Status = "Unknown"
-	MowerState.GPS.Coordinates = "40.780715, -78.007729"
-
-	MowerState.Drive.Speed = 100
-	MowerState.Drive.Direction = "stopped"
-
-	MowerState.Cutter.Speed = 45
 }
 
-func PublishState() {
+func wsPublishLoop() {
+	for {
+		select {
+		case <-MowerController.wsPublishTicker.C:
+			UpdateSystemState()
+			wsPublishState()
+		}
+	}
+}
+
+func wsPublishState() {
 	//log.Println("publishing state")
 
 	message, _ := json.Marshal(StateMessage{MowerStateStruct: MowerState, Namespace: "mower", Mutation: "setMowerState"})
@@ -160,17 +186,17 @@ func PublishState() {
 	}
 }
 
-func (m *MowerControllerStruct) run() {
+func (m *MowerControllerStruct) wsClientLoop() {
 	for {
 		select {
-		case client := <-m.register:
+		case client := <-m.wsRegister:
 			m.wsClients[client] = true
-		case client := <-m.unregister:
+		case client := <-m.wsUnregister:
 			if _, ok := m.wsClients[client]; ok {
 				delete(m.wsClients, client)
 				close(client.send)
 			}
-		case message := <-m.commands:
+		case message := <-m.wsCommands:
 			// handle the command message
 			log.Println("command: " + string(message))
 
@@ -194,7 +220,7 @@ func (m *MowerControllerStruct) run() {
 				}
 
 				// send updated state immediately
-				go PublishState()
+				go wsPublishState()
 			}
 		}
 	}
@@ -209,7 +235,7 @@ func WebSocketConnection(c echo.Context) error {
 	}
 
 	client := &wsClientStruct{controller: MowerController, conn: conn, send: make(chan []byte, 256)}
-	client.controller.register <- client
+	client.controller.wsRegister <- client
 
 	go client.writeWebSocket()
 	go client.readWebSocket()
@@ -219,7 +245,7 @@ func WebSocketConnection(c echo.Context) error {
 
 func (c *wsClientStruct) readWebSocket() {
 	defer func() {
-		c.controller.unregister <- c
+		c.controller.wsUnregister <- c
 		c.conn.Close()
 	}()
 
@@ -233,7 +259,7 @@ func (c *wsClientStruct) readWebSocket() {
 			break
 		}
 
-		c.controller.commands <- message
+		c.controller.wsCommands <- message
 	}
 }
 
