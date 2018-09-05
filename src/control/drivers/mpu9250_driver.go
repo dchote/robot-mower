@@ -257,17 +257,15 @@ type MPU9250Driver struct {
 	connection i2c.Connection
 	i2c.Config
 
-	scaleGyro, scaleAccel float64         // Max sensor reading for value 2**15-1
-	sampleRate            int             // Sample rate for sensor readings, Hz
-	enableMag             bool            // Read the magnetometer?
-	mcal1, mcal2, mcal3   float64         // Hardware magnetometer calibration values, uT
-	a01, a02, a03         float64         // Hardware accelerometer calibration values, G
-	g01, g02, g03         float64         // Hardware gyro calibration values, °/s
-	C                     <-chan *MPUData // Current instantaneous sensor values
-	CAvg                  <-chan *MPUData // Average sensor values (since CAvg last read)
-	CBuf                  <-chan *MPUData // Buffer of instantaneous sensor values
+	scaleGyro, scaleAccel float64 // Max sensor reading for value 2**15-1
+	sampleRate            int     // Sample rate for sensor readings, Hz
+	enableMag             bool    // Read the magnetometer?
+	mcal1, mcal2, mcal3   float64 // Hardware magnetometer calibration values, uT
+	a01, a02, a03         float64 // Hardware accelerometer calibration values, G
+	g01, g02, g03         float64 // Hardware gyro calibration values, °/s
 
-	stop chan bool // Turn off MPU polling
+	CurrentData *MPUData
+	AverageData *MPUData
 }
 
 // NewMPU9250Driver creates a new Gobot Driver for an MPU9250 I2C Accelerometer/Gyroscope.
@@ -314,8 +312,6 @@ func (mpu *MPU9250Driver) Start() (err error) {
 
 // Halt returns true if devices is halted successfully
 func (mpu *MPU9250Driver) Halt() (err error) {
-	mpu.stop <- true
-
 	return
 }
 
@@ -332,10 +328,10 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 	sensitivityGyro := 250
 	sensitivityAccel := 4
 
-	applyHWOffsets := false
+	applyHWOffsets := true
 
-	mpu.sampleRate = 25
-	mpu.enableMag = false
+	mpu.sampleRate = 50
+	mpu.enableMag = true
 
 	// Initialization of MPU
 	// Reset device.
@@ -443,7 +439,7 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 			ak8963Rate = byte(mpu.sampleRate/AK8963_MAX_SAMPLE_RATE - 1)
 		}
 
-		// Not so sure of this one--I2C Slave 4??!
+		// Not so sure of this one--I2C Slave 4??!  TODO dan review
 		if err := mpu.i2cWrite(MPUREG_I2C_SLV4_CTRL, ak8963Rate); err != nil {
 			return errors.New(fmt.Sprintf("Error setting up AK8963: %s", err))
 		}
@@ -479,18 +475,14 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 		return err
 	}
 
-	go mpu.readSensors()
-
-	// Give the IMU time to fully initialize and then clear out any bad values from the averages.
-	//time.Sleep(500 * time.Millisecond) // Make sure it's ready
-	//<-mpu.CAvg
+	go mpu.GetData()
 
 	return nil
 }
 
 // readSensors polls the gyro, accelerometer and magnetometer sensors as well as the die temperature.
 // Communication is via channels.
-func (mpu *MPU9250Driver) readSensors() {
+func (mpu *MPU9250Driver) GetData() (err error) {
 	var (
 		g1, g2, g3, a1, a2, a3, m1, m2, m3, m4, tmp int16   // Current values
 		avg1, avg2, avg3, ava1, ava2, ava3, avtmp   float64 // Accumulators for averages
@@ -498,8 +490,6 @@ func (mpu *MPU9250Driver) readSensors() {
 		n, nm                                       float64
 		gaError, magError                           error
 		t0, t, t0m, tm                              time.Time
-		magSampleRate                               int
-		curdata                                     *MPUData
 	)
 
 	acRegMap := map[*int16]byte{
@@ -511,29 +501,6 @@ func (mpu *MPU9250Driver) readSensors() {
 		&m1: MPUREG_EXT_SENS_DATA_00, &m2: MPUREG_EXT_SENS_DATA_02, &m3: MPUREG_EXT_SENS_DATA_04, &m4: MPUREG_EXT_SENS_DATA_06,
 	}
 
-	if mpu.sampleRate > 100 {
-		magSampleRate = 100
-	} else {
-		magSampleRate = mpu.sampleRate
-	}
-
-	cC := make(chan *MPUData)
-	defer close(cC)
-	mpu.C = cC
-	cAvg := make(chan *MPUData)
-	defer close(cAvg)
-	mpu.CAvg = cAvg
-	cBuf := make(chan *MPUData, bufSize)
-	defer close(cBuf)
-	mpu.CBuf = cBuf
-	mpu.stop = make(chan bool)
-	defer close(mpu.stop)
-
-	clock := time.NewTicker(time.Duration(int(1000.0/float32(mpu.sampleRate)+0.5)) * time.Millisecond)
-	//TODO westphae: use the clock to record actual time instead of a timer
-	defer clock.Stop()
-
-	clockMag := time.NewTicker(time.Duration(int(1000.0/float32(magSampleRate)+0.5)) * time.Millisecond)
 	t0 = time.Now()
 	t0m = time.Now()
 
@@ -593,88 +560,81 @@ func (mpu *MPU9250Driver) readSensors() {
 		return &d
 	}
 
-	for {
-		select {
-		case t = <-clock.C: // Read accel/gyro data:
-			for p, reg := range acRegMap {
-				*p, gaError = mpu.i2cRead2(reg)
-				if gaError != nil {
-					log.Println("MPU9250 Warning: error reading gyro/accel")
-				}
-			}
-			curdata = makeMPUData()
-			// Update accumulated values and increment count of gyro/accel readings
-			avg1 += float64(g1)
-			avg2 += float64(g2)
-			avg3 += float64(g3)
-			ava1 += float64(a1)
-			ava2 += float64(a2)
-			ava3 += float64(a3)
-			avtmp += float64(tmp)
-			avm1 += int32(m1)
-			avm2 += int32(m2)
-			avm3 += int32(m3)
-			n++
-			select {
-			case cBuf <- curdata: // We update the buffer every time we read a new value.
-			default: // If buffer is full, remove oldest value and put in newest.
-				<-cBuf
-				cBuf <- curdata
-			}
-		case tm = <-clockMag.C: // Read magnetometer data:
-			if mpu.enableMag {
-				// Set AK8963 to slave0 for reading
-				if err := mpu.i2cWrite(MPUREG_I2C_SLV0_ADDR, AK8963_I2C_ADDR|READ_FLAG); err != nil {
-					log.Printf("MPU9250 Warning: couldn't set AK8963 address for reading: %s", err)
-				}
-				//I2C slave 0 register address from where to begin data transfer
-				if err := mpu.i2cWrite(MPUREG_I2C_SLV0_REG, AK8963_HXL); err != nil {
-					log.Printf("MPU9250 Warning: couldn't set AK8963 read register: %s", err)
-				}
-				//Tell AK8963 that we will read 7 bytes
-				if err := mpu.i2cWrite(MPUREG_I2C_SLV0_CTRL, 0x87); err != nil {
-					log.Printf("MPU9250 Warning: couldn't communicate with AK8963: %s", err)
-				}
-
-				// Read the actual data
-				for p, reg := range magRegMap {
-					*p, magError = mpu.i2cRead2(reg)
-					if magError != nil {
-						log.Println("MPU9250 Warning: error reading magnetometer")
-					}
-				}
-
-				// Test validity of magnetometer data
-				if (byte(m1&0xFF)&AKM_DATA_READY) == 0x00 && (byte(m1&0xFF)&AKM_DATA_OVERRUN) != 0x00 {
-					log.Println("MPU9250 Warning: mag data not ready or overflow")
-					log.Printf("MPU9250 Warning: m1 LSB: %X\n", byte(m1&0xFF))
-					continue // Don't update the accumulated values
-				}
-
-				if (byte((m4>>8)&0xFF) & AKM_OVERFLOW) != 0x00 {
-					log.Println("MPU9250 Warning: mag data overflow")
-					log.Printf("MPU9250 Warning: m4 MSB: %X\n", byte((m1>>8)&0xFF))
-					continue // Don't update the accumulated values
-				}
-
-				// Update values and increment count of magnetometer readings
-				avm1 += int32(m1)
-				avm2 += int32(m2)
-				avm3 += int32(m3)
-				nm++
-			}
-		case cC <- curdata: // Send the latest values
-		case cAvg <- makeAvgMPUData(): // Send the averages
-			avg1, avg2, avg3 = 0, 0, 0
-			ava1, ava2, ava3 = 0, 0, 0
-			avm1, avm2, avm3 = 0, 0, 0
-			avtmp = 0
-			n, nm = 0, 0
-			t0, t0m = t, tm
-		case <-mpu.stop: // Stop the goroutine, ease up on the CPU
-			break
+	// read accel/gyro data
+	for p, reg := range acRegMap {
+		*p, gaError = mpu.i2cRead2(reg)
+		if gaError != nil {
+			log.Println("MPU9250 Warning: error reading gyro/accel")
 		}
 	}
+
+	// Update accumulated values and increment count of gyro/accel readings
+	avg1 += float64(g1)
+	avg2 += float64(g2)
+	avg3 += float64(g3)
+	ava1 += float64(a1)
+	ava2 += float64(a2)
+	ava3 += float64(a3)
+	avtmp += float64(tmp)
+	avm1 += int32(m1)
+	avm2 += int32(m2)
+	avm3 += int32(m3)
+
+	// read mag data
+	if mpu.enableMag {
+		// Set AK8963 to slave0 for reading
+		if err := mpu.i2cWrite(MPUREG_I2C_SLV0_ADDR, AK8963_I2C_ADDR|READ_FLAG); err != nil {
+			log.Printf("MPU9250 Warning: couldn't set AK8963 address for reading: %s", err)
+		}
+		//I2C slave 0 register address from where to begin data transfer
+		if err := mpu.i2cWrite(MPUREG_I2C_SLV0_REG, AK8963_HXL); err != nil {
+			log.Printf("MPU9250 Warning: couldn't set AK8963 read register: %s", err)
+		}
+		//Tell AK8963 that we will read 7 bytes
+		if err := mpu.i2cWrite(MPUREG_I2C_SLV0_CTRL, 0x87); err != nil {
+			log.Printf("MPU9250 Warning: couldn't communicate with AK8963: %s", err)
+		}
+
+		// TODO maybe loop this?
+
+		// Read the actual data
+		for p, reg := range magRegMap {
+			*p, magError = mpu.i2cRead2(reg)
+			if magError != nil {
+				log.Println("MPU9250 Warning: error reading magnetometer")
+			}
+		}
+
+		// Test validity of magnetometer data
+		if (byte(m1&0xFF)&AKM_DATA_READY) == 0x00 && (byte(m1&0xFF)&AKM_DATA_OVERRUN) != 0x00 {
+			log.Println("MPU9250 Warning: mag data not ready or overflow")
+			log.Printf("MPU9250 Warning: m1 LSB: %X\n", byte(m1&0xFF))
+		}
+
+		if (byte((m4>>8)&0xFF) & AKM_OVERFLOW) != 0x00 {
+			log.Println("MPU9250 Warning: mag data overflow")
+			log.Printf("MPU9250 Warning: m4 MSB: %X\n", byte((m1>>8)&0xFF))
+		}
+
+		// Update values and increment count of magnetometer readings
+		avm1 += int32(m1)
+		avm2 += int32(m2)
+		avm3 += int32(m3)
+		nm++
+	}
+
+	mpu.CurrentData = makeMPUData()
+	mpu.AverageData = makeAvgMPUData()
+
+	// reset avg data vars
+	avg1, avg2, avg3 = 0, 0, 0
+	ava1, ava2, ava3 = 0, 0, 0
+	avm1, avm2, avm3 = 0, 0, 0
+	avtmp = 0
+	n, nm = 0, 0
+	t0, t0m = t, tm
+
+	return nil
 }
 
 // SetSampleRate changes the sampling rate of the MPU.

@@ -74,16 +74,22 @@ func StartController() {
 			if err != nil {
 				log.Printf("INA219 Bus Voltage error: %v\n", err)
 			}
-
 			log.Printf("INA219 Bus Voltage: %fV\n", val)
 
 			val, err = ina.GetCurrent()
 			if err != nil {
 				log.Printf("INA219 Current error: %v\n", err)
 			}
-
 			log.Printf("INA219 Current: %fV\n", val)
 
+			err = mpu.GetData()
+			if err != nil {
+				log.Printf("MPU9250 Error: %v\n", err)
+			}
+			log.Printf("MPU9250 Accelerometer: %v, %v, %v", mpu.CurrentData.A1, mpu.CurrentData.A2, mpu.CurrentData.A3)
+			log.Printf("MPU9250 Gyroscope: %v, %v, %v", mpu.CurrentData.G1, mpu.CurrentData.G2, mpu.CurrentData.G3)
+			log.Printf("MPU9250 Magnetometer: %v, %v, %v", mpu.CurrentData.M1, mpu.CurrentData.M2, mpu.CurrentData.M3)
+			log.Printf("MPU9250 Temperature: %v", mpu.CurrentData.Temp)
 		})
 	}
 
