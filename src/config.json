@@ -4,6 +4,6 @@
   },
   "mower": {
     "name": "MowPi",
-    "cameraDeviceID": 1
+    "cameraDeviceID": 0
   }
 }

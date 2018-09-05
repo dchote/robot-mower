@@ -9,13 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dchote/robot-mower/src/control/drivers"
+
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo"
 
 	"gobot.io/x/gobot"
 	//"gobot.io/x/gobot/api"
 	//"gobot.io/x/gobot/drivers/gpio"
-	"gobot.io/x/gobot/drivers/i2c"
+	//"gobot.io/x/gobot/drivers/i2c"
 	"gobot.io/x/gobot/platforms/raspi"
 
 	"github.com/shirou/gopsutil/cpu"
@@ -26,7 +28,7 @@ import (
 )
 
 const (
-	publishInterval = 1
+	publishInterval = 1000 * time.Millisecond
 )
 
 type MowerControllerStruct struct {
@@ -38,6 +40,8 @@ type MowerControllerStruct struct {
 	wsPublishTicker *time.Ticker
 
 	robotPlatform *gobot.Robot
+
+	mpuData *drivers.MPUData
 }
 
 type wsClientStruct struct {
@@ -60,10 +64,27 @@ func StartController() {
 
 	// initialize the hardware platform devices
 	r := raspi.NewAdaptor()
-	ina := i2c.NewINA3221Driver(r)
+	ina := drivers.NewINA219Driver(r)
+	mpu := drivers.NewMPU9250Driver(r)
 
 	robotWork := func() {
 		// gobot control & GPIO control logic here
+		gobot.Every(5*time.Second, func() {
+			val, err := ina.GetBusVoltage()
+			if err != nil {
+				log.Printf("INA219 Bus Voltage error: %v\n", err)
+			}
+
+			log.Printf("INA219 Bus Voltage: %fV\n", val)
+
+			val, err = ina.GetCurrent()
+			if err != nil {
+				log.Printf("INA219 Current error: %v\n", err)
+			}
+
+			log.Printf("INA219 Current: %fV\n", val)
+
+		})
 	}
 
 	InitialMowerState()
@@ -76,20 +97,26 @@ func StartController() {
 		wsUnregister: make(chan *wsClientStruct),
 		wsCommands:   make(chan []byte),
 
-		wsPublishTicker: time.NewTicker(publishInterval * time.Second),
+		wsPublishTicker: time.NewTicker(publishInterval),
 
 		robotPlatform: gobot.NewRobot("Mower",
 			[]gobot.Connection{r},
-			[]gobot.Device{ina},
+			[]gobot.Device{ina, mpu},
 			robotWork),
 	}
 
+	// start the robotPlatform loop
+	go MowerController.robotPlatform.Start()
+
+	// websocket client transmit/recieve loop
 	go MowerController.wsClientLoop()
+
+	// websocket client data publishing loop, this will live elsewhere
 	go wsPublishLoop()
 }
 
 func StopController() {
-
+	MowerController.robotPlatform.Stop()
 }
 
 func InitialMowerState() {
@@ -119,10 +146,10 @@ func InitialMowerState() {
 func UpdateSystemState() {
 	MowerState.Platform.CPULoad.Count, _ = cpu.Counts(false)
 
-	cpuLoad, _ := cpu.Percent(time.Second, false)
+	cpuLoad, _ := cpu.Percent(publishInterval, false)
 	MowerState.Platform.CPULoad.Total = cpuLoad[0]
 
-	perCPU, _ := cpu.Percent(time.Second, true)
+	perCPU, _ := cpu.Percent(publishInterval, true)
 	// TODO do this better, this is a hax but I dont know the right way to do it right now.
 	MowerState.Platform.CPULoad.Core1 = perCPU[0]
 	if MowerState.Platform.CPULoad.Count >= 2 {

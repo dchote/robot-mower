@@ -71,7 +71,7 @@ func StartServer(cfg config.ConfigStruct, assets *rice.Box) {
 	e.GET("/ws", control.WebSocketConnection)
 
 	log.Println("starting server on ", cfg.APIServer.ListenAddress)
-	e.Logger.Fatal(e.Start(cfg.APIServer.ListenAddress))
+	e.Start(cfg.APIServer.ListenAddress)
 }
 
 func StopServer() {

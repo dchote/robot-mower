@@ -21,7 +21,7 @@ var (
 	Config     *ConfigStruct
 )
 
-func LoadConfig(file string) (*ConfigStruct, error) {
+func LoadConfig(file string) error {
 	var cfg ConfigStruct
 
 	configFile, err := os.Open(file)
@@ -35,5 +35,5 @@ func LoadConfig(file string) (*ConfigStruct, error) {
 
 	Config = &cfg
 
-	return &cfg, err
+	return err
 }
