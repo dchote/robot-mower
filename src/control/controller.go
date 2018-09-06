@@ -85,11 +85,21 @@ func StartController() {
 			err = mpu.GetData()
 			if err != nil {
 				log.Printf("MPU9250 Error: %v\n", err)
+			} else {
+				log.Printf("MPU9250 Accelerometer: %v, %v, %v", mpu.Data.A1, mpu.Data.A2, mpu.Data.A3)
+				log.Printf("MPU9250 Gyroscope: %v, %v, %v", mpu.Data.G1, mpu.Data.G2, mpu.Data.G3)
+				log.Printf("MPU9250 Magnetometer: %v, %v, %v", mpu.Data.M1, mpu.Data.M2, mpu.Data.M3)
+				log.Printf("MPU9250 Temperature: %v", mpu.Data.Temp)
+
+				heading, label, err := mpu.CurrentHeading()
+				if err != nil {
+					log.Printf("MPU9250 Error: %v\n", err)
+				} else {
+					log.Printf("MPU9250 Heading: %v, %v", heading, label)
+				}
+
 			}
-			log.Printf("MPU9250 Accelerometer: %v, %v, %v", mpu.CurrentData.A1, mpu.CurrentData.A2, mpu.CurrentData.A3)
-			log.Printf("MPU9250 Gyroscope: %v, %v, %v", mpu.CurrentData.G1, mpu.CurrentData.G2, mpu.CurrentData.G3)
-			log.Printf("MPU9250 Magnetometer: %v, %v, %v", mpu.CurrentData.M1, mpu.CurrentData.M2, mpu.CurrentData.M3)
-			log.Printf("MPU9250 Temperature: %v", mpu.CurrentData.Temp)
+
 		})
 	}
 
