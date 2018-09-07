@@ -35,10 +35,10 @@ type MowerStateStruct struct {
 	} `json:"platform"`
 	Battery struct {
 		Status         string  `json:"status"`
-		VoltageNominal float32 `json:"voltage_nominal"`
-		VoltageWarn    float32 `json:"voltage_warn"`
-		Voltage        float32 `json:"voltage"`
-		Current        float32 `json:"current"`
+		VoltageNominal float64 `json:"voltage_nominal"`
+		VoltageWarn    float64 `json:"voltage_warn"`
+		Voltage        float64 `json:"voltage"`
+		Current        float64 `json:"current"`
 	} `json:"battery"`
 	Compass struct {
 		Status  string `json:"status"`

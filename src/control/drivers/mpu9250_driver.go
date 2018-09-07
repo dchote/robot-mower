@@ -6,31 +6,6 @@ package drivers
 // https://github.com/dchote/robot-mower/blob/master/src/control/drivers/mpu9250_driver.go
 //
 
-//
-// Compass bearing logic from https://github.com/pd0mz/go-maidenhead/blob/master/point.go
-//
-// The MIT License (MIT)
-//
-// Copyright (c) 2016 pd0mz
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
 import (
 	"errors"
 	//"fmt"
@@ -140,6 +115,28 @@ const (
 	// 16bit output
 	AK8963_BIT_16 = 0x01
 
+	MPUREG_XG_OFFS_TC         = 0x00
+	MPUREG_YG_OFFS_TC         = 0x01
+	MPUREG_ZG_OFFS_TC         = 0x02
+	MPUREG_X_FINE_GAIN        = 0x03
+	MPUREG_Y_FINE_GAIN        = 0x04
+	MPUREG_Z_FINE_GAIN        = 0x05
+	MPUREG_XA_OFFS_H          = 0x06
+	MPUREG_XA_OFFS_L          = 0x07
+	MPUREG_YA_OFFS_H          = 0x08
+	MPUREG_YA_OFFS_L          = 0x09
+	MPUREG_ZA_OFFS_H          = 0x0A
+	MPUREG_ZA_OFFS_L          = 0x0B
+	MPUREG_SELF_TEST_X        = 0x0D
+	MPUREG_SELF_TEST_Y        = 0x0E
+	MPUREG_SELF_TEST_Z        = 0x0F
+	MPUREG_SELF_TEST_A        = 0x10
+	MPUREG_XG_OFFS_USRH       = 0x13
+	MPUREG_XG_OFFS_USRL       = 0x14
+	MPUREG_YG_OFFS_USRH       = 0x15
+	MPUREG_YG_OFFS_USRL       = 0x16
+	MPUREG_ZG_OFFS_USRH       = 0x17
+	MPUREG_ZG_OFFS_USRL       = 0x18
 	MPUREG_I2C_SLV0_DO        = 0x63
 	MPUREG_I2C_SLV1_DO        = 0x64
 	MPUREG_I2C_MST_CTRL       = 0x24
@@ -186,6 +183,14 @@ const (
 	MPUREG_EXT_SENS_DATA_21   = 0x5E
 	MPUREG_EXT_SENS_DATA_22   = 0x5F
 	MPUREG_EXT_SENS_DATA_23   = 0x60
+	MPUREG_BANK_SEL           = 0x6D
+	MPUREG_MEM_R_W            = 0x6F
+	MPUREG_XA_OFFSET_H        = 0x77
+	MPUREG_XA_OFFSET_L        = 0x78
+	MPUREG_YA_OFFSET_H        = 0x7A
+	MPUREG_YA_OFFSET_L        = 0x7B
+	MPUREG_ZA_OFFSET_H        = 0x7D
+	MPUREG_ZA_OFFSET_L        = 0x7E
 
 	READ_FLAG                    = 0x80
 	MPU_BANK_SIZE                = 0xFF
@@ -222,22 +227,19 @@ type MPU9250Driver struct {
 	aResolution float64
 	mResolution float64
 
+	a01 float64
+	a02 float64
+	a03 float64
+
+	g01 float64
+	g02 float64
+	g03 float64
+
 	magXcoef float64
 	magYcoef float64
 	magZcoef float64
 
 	Data *MPUData
-}
-
-var compassBearing = []struct {
-	label        string
-	start, ended float64
-}{
-	{"N", 000.00, 011.25}, {"NNE", 011.25, 033.75}, {"NE", 033.75, 056.25}, {"ENE", 056.25, 078.75},
-	{"E", 078.75, 101.25}, {"ESE", 101.25, 123.75}, {"SE", 123.75, 146.25}, {"SSE", 146.25, 168.75},
-	{"S", 168.75, 191.25}, {"SSW", 191.25, 213.75}, {"SW", 213.75, 236.25}, {"WSW", 236.25, 258.75},
-	{"W", 258.75, 281.25}, {"WNW", 281.25, 303.75}, {"NW", 303.75, 326.25}, {"NNW", 326.25, 348.75},
-	{"N", 348.75, 360.00},
 }
 
 // NewMPU9250Driver creates a new Gobot Driver for an MPU9250 I2C Accelerometer/Gyroscope.
@@ -287,25 +289,6 @@ func (mpu *MPU9250Driver) Halt() (err error) {
 	return
 }
 
-func (mpu *MPU9250Driver) CurrentHeading() (heading float64, headingLabel string, err error) {
-	if mpu.Data.M1 == 0 && mpu.Data.M2 == 0 {
-		return 0, "", errors.New("MPU9250Driver Warning: no magnetometer data")
-	}
-
-	heading = 180 * math.Atan2(mpu.Data.M1, mpu.Data.M2) / math.Pi
-	if heading < 0 {
-		heading += 360
-	}
-
-	for _, compass := range compassBearing {
-		if heading >= compass.start && heading <= compass.ended {
-			return heading, compass.label, nil
-		}
-	}
-
-	return heading, "", nil
-}
-
 func (mpu *MPU9250Driver) initialize() (err error) {
 	bus := mpu.GetBusOrDefault(mpu.connector.GetDefaultBus())
 	address := mpu.GetAddressOrDefault(SLAVE_ADDRESS)
@@ -319,7 +302,10 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 	//mpu.connection.WriteBlockData(register data)
 	//mpu.connection.ReadByteData(register)
 	//mpu.connection.ReadWordData(register) (int16)
-	mpuIdentity, _ := mpu.connection.ReadByteData(WHO_AM_I_MPU9250)
+	mpuIdentity, err := mpu.connection.ReadByteData(WHO_AM_I_MPU9250)
+	if err != nil {
+		return errors.New("MPU9250Driver unable to fetch device identity")
+	}
 	log.Printf("MPU9250Driver mpuIdentity: %v should be %v", mpuIdentity, 0x71)
 
 	// reset and autoselect clock source
@@ -335,13 +321,83 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 	mpu.connection.WriteByteData(CONFIG, 0x03)
 	mpu.connection.WriteByteData(SMPLRT_DIV, 0x04)
 
-	mpu.connection.WriteByteData(GYRO_CONFIG, GFS_250<<3) // gres = 250.0/32768.0
-	mpu.gResolution = 250.0 / 32768.0
+	// gyro config
+	mpu.gResolution = 250.0 / float64(math.MaxInt16)
+	/*
+		//mpu.connection.WriteByteData(GYRO_CONFIG, 0x02)
+		//mpu.connection.WriteByteData(GYRO_CONFIG, 0x18)
+		mpu.connection.WriteByteData(GYRO_CONFIG, GFS_250<<3) // gres = 250.0/32768.0
+	*/
 
-	mpu.connection.WriteByteData(ACCEL_CONFIG, AFS_2G<<3) // ares = 2.0/32768.0
-	mpu.aResolution = 2.0 / 32768.0
+	gyroConf, err := mpu.connection.ReadByteData(GYRO_CONFIG)
+	if err != nil {
+		return errors.New("GYRO_CONFIG read error")
+	}
+	gyroConf = gyroConf & 0x02
+	gyroConf = gyroConf & 0x18
+	gyroConf = gyroConf | GFS_250<<3
+	// 0x02      // Clear Fchoice bits [1:0]
+	// 0x18      // Clear AFS bits [4:3]
+	// GFS_250<<3 // Set full scale range for the gyro
+	if err = mpu.connection.WriteByteData(GYRO_CONFIG, gyroConf); err != nil {
+		return errors.New("GYRO_CONFIG write error")
+	}
 
-	mpu.connection.WriteByteData(ACCEL_CONFIG_2, 0x03)
+	// accel config
+	mpu.aResolution = 2.0 / float64(math.MaxInt16)
+	/*
+		//mpu.connection.WriteByteData(ACCEL_CONFIG, 0x18)
+		mpu.connection.WriteByteData(ACCEL_CONFIG, AFS_2G<<3) // ares = 2.0/32768.0
+	*/
+
+	accelConf, err := mpu.connection.ReadByteData(ACCEL_CONFIG)
+	if err != nil {
+		return errors.New("ACCEL_CONFIG read error")
+	}
+	accelConf = accelConf & 0x18
+	accelConf = accelConf | AFS_2G<<3
+	// 0x18     // Clear AFS bits [4:3]
+	// AFS_2G<<3 // Set full scale range for the accelerometer
+	if err = mpu.connection.WriteByteData(ACCEL_CONFIG, accelConf); err != nil {
+		return errors.New("ACCEL_CONFIG write error")
+	}
+
+	/*
+		//mpu.connection.WriteByteData(ACCEL_CONFIG_2, 0x0F)
+		mpu.connection.WriteByteData(ACCEL_CONFIG_2, 0x03)
+	*/
+
+	accelConf2, err := mpu.connection.ReadByteData(ACCEL_CONFIG_2)
+	if err != nil {
+		return errors.New("ACCEL_CONFIG_2 read error")
+	}
+	accelConf2 = accelConf2 & 0x0F
+	accelConf2 = accelConf2 | 0x03
+	// 0x0F // Clear accel_fchoice_b (bit 3) and A_DLPFG (bits [2:0])
+	// 0x03  // Set accelerometer rate to 1 kHz and bandwidth to 41 Hz
+	if err = mpu.connection.WriteByteData(ACCEL_CONFIG_2, accelConf2); err != nil {
+		return errors.New("ACCEL_CONFIG_2 write error")
+	}
+
+	a0x, _ := mpu.i2cRead16(MPUREG_XA_OFFSET_H)
+	a0y, _ := mpu.i2cRead16(MPUREG_YA_OFFSET_H)
+	a0z, _ := mpu.i2cRead16(MPUREG_ZA_OFFSET_H)
+
+	mpu.a01 = float64(a0x << 2)
+	mpu.a02 = float64(a0y << 2)
+	mpu.a03 = float64(a0z << 2)
+
+	log.Printf("MPU9250Driver accel hardware bias read: %6f %6f %6f\n", mpu.a01, mpu.a02, mpu.a03)
+
+	g0x, _ := mpu.i2cRead16(MPUREG_XG_OFFS_USRH)
+	g0y, _ := mpu.i2cRead16(MPUREG_YG_OFFS_USRH)
+	g0z, _ := mpu.i2cRead16(MPUREG_ZG_OFFS_USRH)
+
+	mpu.g01 = float64(g0x << 2)
+	mpu.g02 = float64(g0y << 2)
+	mpu.g03 = float64(g0z << 2)
+
+	log.Printf("MPU9250Driver gyro hardware bias read: %6f %6f %6f\n", mpu.g01, mpu.g02, mpu.g03)
 
 	// configure interrupts and setup i2c master
 	mpu.connection.WriteByteData(INT_PIN_CFG, 0x30)
@@ -375,11 +431,11 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 	magBuf := []byte{0, 0, 0}
 	_, _ = mpu.connection.Read(magBuf)
 
-	mpu.magXcoef = (float64(magBuf[0])-128)/256.0 + 1.0
-	mpu.magYcoef = (float64(magBuf[1])-128)/256.0 + 1.0
-	mpu.magZcoef = (float64(magBuf[2])-128)/256.0 + 1.0
+	mpu.magXcoef = (float64(int16(magBuf[0]))-128)/256.0 + 1.0
+	mpu.magYcoef = (float64(int16(magBuf[1]))-128)/256.0 + 1.0
+	mpu.magZcoef = (float64(int16(magBuf[2]))-128)/256.0 + 1.0
 
-	log.Printf("mag coef: %v, %v, %v - %v, %v, %v", magBuf[0], magBuf[1], magBuf[2], mpu.magXcoef, mpu.magYcoef, mpu.magZcoef)
+	log.Printf("MPU9250Driver mag coef raw: %v, %v, %v calculated: %v, %v, %v", magBuf[0], magBuf[1], magBuf[2], mpu.magXcoef, mpu.magYcoef, mpu.magZcoef)
 
 	// AK8963 power down
 	mpu.connection.WriteByteData(MPUREG_I2C_SLV0_DO, 0x00)
@@ -387,7 +443,12 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 
 	// set scale&continuous mode
 	mpu.connection.WriteByteData(MPUREG_I2C_SLV0_CTRL, (AK8963_BIT_16<<4 | AK8963_MODE_C8HZ))
-	mpu.mResolution = 4912.0 / 32760.0
+	mpu.mResolution = 4912.0 / float64(math.MaxInt16)
+
+	// motion bias
+	enableRegs := []byte{0xb8, 0xaa, 0xb3, 0x8d, 0xb4, 0x98, 0x0d, 0x35, 0x5d}
+	//disableRegs := []byte{0xb8, 0xaa, 0xaa, 0xaa, 0xb0, 0x88, 0xc3, 0xc5, 0xc7}
+	mpu.memWrite(CFG_MOTION_BIAS, &enableRegs)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -408,38 +469,44 @@ func (mpu *MPU9250Driver) GetData() (err error) {
 		g1, g2, g3, a1, a2, a3, m1, m2, m3, m4 int16
 	)
 
-	g1, _ = mpu.readWordFromRegisterLittle(GYRO_XOUT)
-	g2, _ = mpu.readWordFromRegisterLittle(GYRO_YOUT)
-	g3, _ = mpu.readWordFromRegisterLittle(GYRO_ZOUT)
+	g1, _ = mpu.i2cRead16(GYRO_XOUT)
+	g2, _ = mpu.i2cRead16(GYRO_YOUT)
+	g3, _ = mpu.i2cRead16(GYRO_ZOUT)
 
-	a1, _ = mpu.readWordFromRegisterLittle(ACCEL_XOUT)
-	a2, _ = mpu.readWordFromRegisterLittle(ACCEL_YOUT)
-	a3, _ = mpu.readWordFromRegisterLittle(ACCEL_ZOUT)
+	a1, _ = mpu.i2cRead16(ACCEL_XOUT)
+	a2, _ = mpu.i2cRead16(ACCEL_YOUT)
+	a3, _ = mpu.i2cRead16(ACCEL_ZOUT)
 
-	temp, _ := mpu.readWordFromRegisterBig(TEMP_OUT)
+	temp, _ := mpu.i2cRead16BigEnd(TEMP_OUT)
 
 	mpu.Data = &MPUData{
-		G1:   float64(g1) * mpu.gResolution,
-		G2:   float64(g2) * mpu.gResolution,
-		G3:   float64(g3) * mpu.gResolution,
-		A1:   float64(a1) * mpu.aResolution,
-		A2:   float64(a2) * mpu.aResolution,
-		A3:   float64(a3) * mpu.aResolution,
+		G1:   (float64(g1) - mpu.g01) * mpu.gResolution,
+		G2:   (float64(g2) - mpu.g02) * mpu.gResolution,
+		G3:   (float64(g3) - mpu.g03) * mpu.gResolution,
+		A1:   (float64(a1) - mpu.a01) * mpu.aResolution,
+		A2:   (float64(a2) - mpu.a02) * mpu.aResolution,
+		A3:   (float64(a3) - mpu.a03) * mpu.aResolution,
 		Temp: float64(temp)/333.87 + 21.0,
 	}
 
+	// request to read data from the AK8963
 	mpu.connection.WriteByteData(MPUREG_I2C_SLV0_ADDR, AK8963_SLAVE_ADDRESS|READ_FLAG)
 	mpu.connection.WriteByteData(MPUREG_I2C_SLV0_REG, AK8963_HXL)
-	mpu.connection.WriteByteData(MPUREG_I2C_SLV0_CTRL, 0x87)
+	mpu.connection.WriteByteData(MPUREG_I2C_SLV0_CTRL, 0x87) // we want 7 bytes
 
 	time.Sleep(10 * time.Millisecond)
 
-	magRegMap := map[*int16]byte{
-		&m1: MPUREG_EXT_SENS_DATA_00, &m2: MPUREG_EXT_SENS_DATA_02, &m3: MPUREG_EXT_SENS_DATA_04, &m4: MPUREG_EXT_SENS_DATA_06,
+	if err = mpu.connection.WriteByte(MPUREG_EXT_SENS_DATA_00); err != nil {
+		return errors.New("MPU9250Driver mag coef read error")
 	}
-	for p, reg := range magRegMap {
-		*p, _ = mpu.readWordFromRegisterLittle(reg)
-	}
+
+	magBuf := []byte{0, 0, 0, 0, 0, 0, 0}
+	_, _ = mpu.connection.Read(magBuf)
+
+	m1 = mpu.bufConvert(magBuf[0], magBuf[1])
+	m2 = mpu.bufConvert(magBuf[2], magBuf[3])
+	m3 = mpu.bufConvert(magBuf[4], magBuf[5])
+	m4 = int16(magBuf[6])
 
 	// validate mag data
 	if (byte(m1&0xFF)&AKM_DATA_READY) == 0x00 && (byte(m1&0xFF)&AKM_DATA_OVERRUN) != 0x00 {
@@ -455,7 +522,16 @@ func (mpu *MPU9250Driver) GetData() (err error) {
 	return nil
 }
 
-func (mpu *MPU9250Driver) readWordFromRegisterBig(reg uint8) (val int16, err error) {
+func (mpu *MPU9250Driver) i2cRead16(reg uint8) (val int16, err error) {
+	v, errRead := mpu.connection.ReadWordData(reg)
+	if errRead != nil {
+		return 0, errors.New("MPU9250Driver i2cRead16 error")
+	} else {
+		return int16(v), nil
+	}
+}
+
+func (mpu *MPU9250Driver) i2cRead16BigEnd(reg uint8) (val int16, err error) {
 	if err = mpu.connection.WriteByte(reg); err != nil {
 		return 0, errors.New("MPU9250Driver readWordFromRegister error")
 	}
@@ -468,10 +544,37 @@ func (mpu *MPU9250Driver) readWordFromRegisterBig(reg uint8) (val int16, err err
 	return int16(buf[0])<<8 + int16(buf[1]), nil
 }
 
-func (mpu *MPU9250Driver) readWordFromRegisterLittle(reg uint8) (val int16, err error) {
-	bigEndian, err := mpu.readWordFromRegisterBig(reg)
-	if err != nil {
-		return 0, err
+func (mpu *MPU9250Driver) bufConvert(data1 uint8, data2 uint8) (val int16) {
+	value := int32(data1) | (int32(data2) << 8)
+
+	if value > 0x7FFF {
+		value -= 0x10000
 	}
-	return (bigEndian&0xFF)<<8 + bigEndian>>8, nil // return littleEndian
+
+	return int16(value)
+}
+
+func (mpu *MPU9250Driver) memWrite(addr uint16, data *[]byte) error {
+	var err error
+	var tmp = make([]byte, 2)
+
+	tmp[0] = byte(addr >> 8)
+	tmp[1] = byte(addr & 0xFF)
+
+	// Check memory bank boundaries
+	if tmp[1]+byte(len(*data)) > MPU_BANK_SIZE {
+		return errors.New("Bad address: writing outside of memory bank boundaries")
+	}
+
+	err = mpu.connection.WriteBlockData(MPUREG_BANK_SEL, tmp)
+	if err != nil {
+		return errors.New("MPU9250 Error selecting memory bank")
+	}
+
+	err = mpu.connection.WriteBlockData(MPUREG_MEM_R_W, *data)
+	if err != nil {
+		return errors.New("MPU9250 Error writing to the memory bank")
+	}
+
+	return nil
 }

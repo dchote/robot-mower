@@ -68,42 +68,29 @@ func StartController() {
 	mpu := drivers.NewMPU9250Driver(r)
 
 	robotWork := func() {
-		// gobot control & GPIO control logic here
-		gobot.Every(5*time.Second, func() {
+		// we will want to sample our IMU at ~8hz (125ms) ALL i2c devices need to be read in here
+		gobot.Every(1000*time.Millisecond, func() {
+			// read voltage and current
 			val, err := ina.GetBusVoltage()
-			if err != nil {
-				log.Printf("INA219 Bus Voltage error: %v\n", err)
+			if err == nil {
+				MowerState.Battery.Voltage = val
 			}
-			log.Printf("INA219 Bus Voltage: %fV\n", val)
-
 			val, err = ina.GetCurrent()
-			if err != nil {
-				log.Printf("INA219 Current error: %v\n", err)
+			if err == nil {
+				MowerState.Battery.Current = val
 			}
-			log.Printf("INA219 Current: %fV\n", val)
 
+			// read IMU data
 			err = mpu.GetData()
-			if err != nil {
-				log.Printf("MPU9250 Error: %v\n", err)
-			} else {
-				log.Printf("MPU9250 Accelerometer: %v, %v, %v", mpu.Data.A1, mpu.Data.A2, mpu.Data.A3)
-				log.Printf("MPU9250 Gyroscope: %v, %v, %v", mpu.Data.G1, mpu.Data.G2, mpu.Data.G3)
-				log.Printf("MPU9250 Magnetometer: %v, %v, %v", mpu.Data.M1, mpu.Data.M2, mpu.Data.M3)
-				log.Printf("MPU9250 Temperature: %v", mpu.Data.Temp)
-
-				heading, label, err := mpu.CurrentHeading()
-				if err != nil {
-					log.Printf("MPU9250 Error: %v\n", err)
-				} else {
-					log.Printf("MPU9250 Heading: %v, %v", heading, label)
-				}
-
+			if err == nil {
+				SetIMUValues(mpu.Data)
 			}
 
 		})
 	}
 
-	InitialMowerState()
+	InitMowerState()
+	InitFilters()
 	UpdateSystemState()
 
 	// mower controller
@@ -121,6 +108,8 @@ func StartController() {
 			robotWork),
 	}
 
+	time.Sleep(1 * time.Second)
+
 	// start the robotPlatform loop
 	go MowerController.robotPlatform.Start()
 
@@ -135,7 +124,7 @@ func StopController() {
 	MowerController.robotPlatform.Stop()
 }
 
-func InitialMowerState() {
+func InitMowerState() {
 	sysInfo, _ := host.Info()
 	MowerState.Platform.Hostname = sysInfo.Hostname
 	MowerState.Platform.OperatingSystem = sysInfo.OS
