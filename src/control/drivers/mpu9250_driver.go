@@ -324,17 +324,14 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 	// gyro config
 	mpu.gResolution = 250.0 / float64(math.MaxInt16)
 	/*
-		//mpu.connection.WriteByteData(GYRO_CONFIG, 0x02)
-		//mpu.connection.WriteByteData(GYRO_CONFIG, 0x18)
 		mpu.connection.WriteByteData(GYRO_CONFIG, GFS_250<<3) // gres = 250.0/32768.0
 	*/
-
 	gyroConf, err := mpu.connection.ReadByteData(GYRO_CONFIG)
 	if err != nil {
 		return errors.New("GYRO_CONFIG read error")
 	}
-	gyroConf = gyroConf & 0x02
-	gyroConf = gyroConf & 0x18
+	gyroConf = gyroConf &^ 0x02
+	gyroConf = gyroConf &^ 0x18
 	gyroConf = gyroConf | GFS_250<<3
 	// 0x02      // Clear Fchoice bits [1:0]
 	// 0x18      // Clear AFS bits [4:3]
@@ -346,15 +343,13 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 	// accel config
 	mpu.aResolution = 2.0 / float64(math.MaxInt16)
 	/*
-		//mpu.connection.WriteByteData(ACCEL_CONFIG, 0x18)
 		mpu.connection.WriteByteData(ACCEL_CONFIG, AFS_2G<<3) // ares = 2.0/32768.0
 	*/
-
 	accelConf, err := mpu.connection.ReadByteData(ACCEL_CONFIG)
 	if err != nil {
 		return errors.New("ACCEL_CONFIG read error")
 	}
-	accelConf = accelConf & 0x18
+	accelConf = accelConf &^ 0x18
 	accelConf = accelConf | AFS_2G<<3
 	// 0x18     // Clear AFS bits [4:3]
 	// AFS_2G<<3 // Set full scale range for the accelerometer
@@ -363,15 +358,13 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 	}
 
 	/*
-		//mpu.connection.WriteByteData(ACCEL_CONFIG_2, 0x0F)
 		mpu.connection.WriteByteData(ACCEL_CONFIG_2, 0x03)
 	*/
-
 	accelConf2, err := mpu.connection.ReadByteData(ACCEL_CONFIG_2)
 	if err != nil {
 		return errors.New("ACCEL_CONFIG_2 read error")
 	}
-	accelConf2 = accelConf2 & 0x0F
+	accelConf2 = accelConf2 &^ 0x0F
 	accelConf2 = accelConf2 | 0x03
 	// 0x0F // Clear accel_fchoice_b (bit 3) and A_DLPFG (bits [2:0])
 	// 0x03  // Set accelerometer rate to 1 kHz and bandwidth to 41 Hz
@@ -437,18 +430,26 @@ func (mpu *MPU9250Driver) initialize() (err error) {
 
 	log.Printf("MPU9250Driver mag coef raw: %v, %v, %v calculated: %v, %v, %v", magBuf[0], magBuf[1], magBuf[2], mpu.magXcoef, mpu.magYcoef, mpu.magZcoef)
 
-	// AK8963 power down
+	// AK8963 power down & cleanup
 	mpu.connection.WriteByteData(MPUREG_I2C_SLV0_DO, 0x00)
+	//mpu.connection.WriteByteData(MPUREG_I2C_SLV0_DO, AK8963_I2CDIS)
+	//mpu.connection.WriteByteData(MPUREG_INT_PIN_CFG, 0x00)
+
 	time.Sleep(10 * time.Millisecond)
 
 	// set scale&continuous mode
 	mpu.connection.WriteByteData(MPUREG_I2C_SLV0_CTRL, (AK8963_BIT_16<<4 | AK8963_MODE_C8HZ))
 	mpu.mResolution = 4912.0 / float64(math.MaxInt16)
 
+	// turn it off and on again
+	//mpu.connection.WriteByteData(PWR_MGMT_2, 0x63)
+	//time.Sleep(10 * time.Millisecond)
+	//mpu.connection.WriteByteData(PWR_MGMT_2, 0x00)
+
 	// motion bias
-	enableRegs := []byte{0xb8, 0xaa, 0xb3, 0x8d, 0xb4, 0x98, 0x0d, 0x35, 0x5d}
-	//disableRegs := []byte{0xb8, 0xaa, 0xaa, 0xaa, 0xb0, 0x88, 0xc3, 0xc5, 0xc7}
-	mpu.memWrite(CFG_MOTION_BIAS, &enableRegs)
+	//enableRegs := []byte{0xb8, 0xaa, 0xb3, 0x8d, 0xb4, 0x98, 0x0d, 0x35, 0x5d}
+	disableRegs := []byte{0xb8, 0xaa, 0xaa, 0xaa, 0xb0, 0x88, 0xc3, 0xc5, 0xc7}
+	mpu.memWrite(CFG_MOTION_BIAS, &disableRegs)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -494,7 +495,7 @@ func (mpu *MPU9250Driver) GetData() (err error) {
 	mpu.connection.WriteByteData(MPUREG_I2C_SLV0_REG, AK8963_HXL)
 	mpu.connection.WriteByteData(MPUREG_I2C_SLV0_CTRL, 0x87) // we want 7 bytes
 
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 
 	if err = mpu.connection.WriteByte(MPUREG_EXT_SENS_DATA_00); err != nil {
 		return errors.New("MPU9250Driver mag coef read error")
