@@ -1,4 +1,4 @@
-package kalman
+package filters
 
 //
 // Adapted from https://github.com/TKJElectronics/KalmanFilter

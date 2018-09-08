@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"github.com/dchote/robot-mower/src/control/drivers"
-	"github.com/dchote/robot-mower/src/control/kalman"
+	//"github.com/dchote/robot-mower/src/control/filters"
 )
 
 const (
@@ -52,93 +52,29 @@ var (
 		{"N", 348.75, 360.00},
 	}
 
-	// filter logic variables
-	imuKalman_X *kalman.KalmanFilter
-	imuKalman_Y *kalman.KalmanFilter
-	imuKalman_Z *kalman.KalmanFilter
-
 	IMUDeltaTime time.Time
 )
 
 func InitFilters() {
-	imuKalman_X = kalman.NewKalmanFilter()
-	imuKalman_Y = kalman.NewKalmanFilter()
-	imuKalman_Z = kalman.NewKalmanFilter()
+
 }
 
 func SetIMUValues(data *drivers.MPUData) {
 	newTime := time.Now()
-	//deltaTime := newTime.Sub(IMUDeltaTime)
-	dt := float64(1)
+	deltaTime := newTime.Sub(IMUDeltaTime)
 	IMUDeltaTime = newTime
 
-	var (
-		gyroXrate, gyroYrate, gyroXangle, gyroYangle, compAngle_X, compAngle_Y, kalAngle_X, kalAngle_Y float64
-	)
-
-	// 90 deg limit
-	//roll := math.Atan2(data.A2, data.A3) * RAD_TO_DEG
-	//pitch := math.Atan(-data.A1/math.Sqrt(data.A2*data.A2+data.A3*data.A3)) * RAD_TO_DEG
-
-	roll := math.Atan(data.A2/math.Sqrt(data.A1*data.A1+data.A3*data.A3)) * RAD_TO_DEG
-	pitch := math.Atan2(-data.A1, data.A3) * RAD_TO_DEG
-	//yaw?
-
-	gyroXangle = roll
-	gyroYangle = pitch
-	compAngle_X = roll
-	compAngle_Y = pitch
-
-	gyroXrate = data.G1 * math.Pi / 180
-	gyroYrate = data.G2 * math.Pi / 180
-	//gyroZrate = data.G3 * math.Pi / 180
-
-	if !imuKalman_X.Initialized {
-		imuKalman_X.SetAngle(roll)
-	}
-
-	if !imuKalman_Y.Initialized {
-		imuKalman_Y.SetAngle(pitch)
-	}
-
-	/*
-		// 90 deg limit
-		kalAngle_X := imuKalman_X.GetAngle(roll, gyroXrate, dt) // Calculate the angle using a Kalman filter
-		if math.Abs(kalAngle_X) > 90 {
-			// Invert rate, so it fits the restriced accelerometer reading
-			gyroYrate = -gyroYrate
-		}
-		kalAngle_Y := imuKalman_Y.GetAngle(pitch, gyroYrate, dt)
-	*/
-
-	kalAngle_Y = imuKalman_Y.GetAngle(pitch, gyroYrate, dt) // Calculate the angle using a Kalman filter
-	if math.Abs(kalAngle_Y) > 90 {
-		gyroXrate = -gyroXrate // Invert rate, so it fits the restriced accelerometer reading
-	}
-	kalAngle_X = imuKalman_X.GetAngle(roll, gyroXrate, dt) // Calculate the angle using a Kalman filter
-
-	gyroXangle += gyroXrate * dt
-	gyroYangle += gyroYrate * dt
-
-	compAngle_X = 0.93*(compAngle_X+gyroXrate*dt) + 0.07*roll
-	compAngle_Y = 0.93*(compAngle_Y+gyroYrate*dt) + 0.07*pitch
-
-	if gyroXangle < -180 || gyroXangle > 180 {
-		gyroXangle = kalAngle_X
-	}
-
-	if gyroYangle < -180 || gyroYangle > 180 {
-		gyroYangle = kalAngle_Y
-	}
+	dt := float64(deltaTime / time.Millisecond)
 
 	// log the values
 	log.Println("----------")
 	log.Printf("IMU dt: %v", dt)
-	//log.Printf("IMU Temperature: %v", data.Temp)
+	log.Printf("IMU Temperature: %v", data.Temp)
 	log.Printf("IMU Accelerometer: %v, %v, %v", data.A1, data.A2, data.A3)
 	log.Printf("IMU Gyroscope: %v, %v, %v", data.G1, data.G2, data.G3)
-	//log.Printf("IMU Magnetometer: %v, %v, %v", data.M1, data.M2, data.M3)
-	log.Println("----------")
+	log.Printf("IMU Magnetometer: %v, %v, %v", data.M1, data.M2, data.M3)
+
+	/*log.Println("----------")
 	log.Printf("IMU roll: %v", roll)
 	log.Printf("IMU gyroXangle: %v", gyroXangle)
 	log.Printf("IMU kalAngle_X: %v", kalAngle_X)
@@ -147,15 +83,14 @@ func SetIMUValues(data *drivers.MPUData) {
 	log.Printf("IMU gyroYangle: %v", gyroYangle)
 	log.Printf("IMU kalAngle_Y: %v", kalAngle_Y)
 	log.Println("----------")
-
-	/*
-		heading, label, err := CurrentHeading(data.M1, data.M2)
-		if err == nil {
-
-			log.Printf("CurrentHeading: %v, %v", heading, label)
-			log.Println("----------")
-		}
 	*/
+
+	heading, label, err := CurrentHeading(data.M1, data.M2)
+	if err == nil {
+
+		log.Printf("CurrentHeading: %v, %v", heading, label)
+		log.Println("----------")
+	}
 
 }
 
