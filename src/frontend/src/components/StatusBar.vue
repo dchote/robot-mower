@@ -49,12 +49,12 @@
         <v-progress-linear
               :size="42"
               :width="2"
-              :value="percentFree(battery.voltage_nominal, battery.voltage)"
+              :value="batteryPercentFree(battery.voltage, battery.voltage_nominal, battery.voltage_warn)"
               color="teal"
               dark
         >
         </v-progress-linear>
-        <span class="blue-grey--text text--lighten-3">{{ battery.voltage }}v ({{ percentFree(battery.voltage_nominal, battery.voltage) }}%)</span>
+        <span class="blue-grey--text text--lighten-3">{{ battery.voltage }}v ({{ batteryPercentFree(battery.voltage, battery.voltage_nominal, battery.voltage_warn) }}%)</span>
       </div>
       <div class="stat black elevation-2 text-xs-center white--text">
         <h5>Current:</h5>
@@ -87,6 +87,14 @@
       percentFree(total, free) {
         if (total > 0 && free > 0) {
           return Math.round((free / total) * 100)
+        }
+        return 0
+      },
+      batteryPercentFree(voltage, nominal, warn) {
+        if (voltage) {
+          var vSpan = nominal - warn
+          var vFree = voltage - warn
+          return Math.round((vFree / vSpan) * 100)
         }
         return 0
       },

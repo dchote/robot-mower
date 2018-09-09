@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	//"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -65,25 +66,18 @@ func StartController() {
 	// initialize the hardware platform devices
 	r := raspi.NewAdaptor()
 	ina := drivers.NewINA219Driver(r)
-	mpu := drivers.NewMPU9250Driver(r)
 
 	robotWork := func() {
 		// we will want to sample our IMU at ~8hz (125ms) ALL i2c devices need to be read in here
 		gobot.Every(1000*time.Millisecond, func() {
 			// read voltage and current
-			val, err := ina.GetBusVoltage()
+			val, err := ina.GetLoadVoltage()
 			if err == nil {
-				MowerState.Battery.Voltage = val
+				MowerState.Battery.Voltage = math.Round(val*100) / 100
 			}
 			val, err = ina.GetCurrent()
 			if err == nil {
-				MowerState.Battery.Current = val
-			}
-
-			// read IMU data
-			err = mpu.GetData()
-			if err == nil {
-				SetIMUValues(mpu.Data)
+				MowerState.Battery.Current = math.Round(val*100) / 100
 			}
 
 		})
@@ -104,7 +98,7 @@ func StartController() {
 
 		robotPlatform: gobot.NewRobot("Mower",
 			[]gobot.Connection{r},
-			[]gobot.Device{ina, mpu},
+			[]gobot.Device{ina},
 			robotWork),
 	}
 
@@ -131,8 +125,8 @@ func InitMowerState() {
 	MowerState.Platform.Platform = sysInfo.Platform
 
 	MowerState.Battery.Status = "Unknown"
-	MowerState.Battery.VoltageNominal = 24.3
-	MowerState.Battery.VoltageWarn = 23.0
+	MowerState.Battery.VoltageNominal = 24.0
+	MowerState.Battery.VoltageWarn = 22.0 // TODO figure out the exact value this needs to be
 	MowerState.Battery.Voltage = 23.5
 	MowerState.Battery.Current = 0.1
 
@@ -207,6 +201,7 @@ func wsPublishState() {
 	//log.Println("publishing state")
 
 	message, _ := json.Marshal(StateMessage{MowerStateStruct: MowerState, Namespace: "mower", Mutation: "setMowerState"})
+	log.Println("state: " + string(message))
 
 	for client := range MowerController.wsClients {
 		select {

@@ -83,7 +83,7 @@ func NewINA219Driver(c i2c.Connector, options ...func(i2c.Config)) *INA219Driver
 		name:             gobot.DefaultName("INA219"),
 		connector:        c,
 		Config:           i2c.NewConfig(),
-		CalibrationValue: 6826,
+		CalibrationValue: 4027,
 	}
 
 	for _, option := range options {
@@ -179,18 +179,13 @@ func (i *INA219Driver) GetLoadVoltage() (float64, error) {
 }
 
 // getBusVoltageRaw gets the raw bus voltage (16-bit signed integer, so +-32767)
-func (i *INA219Driver) getBusVoltageRaw() (int16, error) {
+func (i *INA219Driver) getBusVoltageRaw() (uint16, error) {
 	val, err := i.readWordFromRegister(INA219_REG_BUSVOLTAGE)
 	if err != nil {
 		return 0, err
 	}
 
-	value := int32(val)
-	if value > 0x7FFF {
-		value -= 0x10000
-	}
-
-	return int16(value), nil
+	return uint16(val), nil
 }
 
 // getShuntVoltageRaw gets the raw shunt voltage (16-bit signed integer, so +-32767)
@@ -250,10 +245,10 @@ func (i *INA219Driver) readWordFromRegister(reg uint8) (uint16, error) {
 
 // initialize initializes the INA219 device
 func (i *INA219Driver) initialize() error {
-	config := INA219_CONFIG_BVOLTAGERANGE_16V |
+	config := INA219_CONFIG_BVOLTAGERANGE_32V |
 		INA219_CONFIG_GAIN_8_320MV |
 		INA219_CONFIG_BADCRES_12BIT |
-		INA219_CONFIG_SADCRES_12BIT_128S_69MS |
+		INA219_CONFIG_SADCRES_12BIT_1S_532US |
 		INA219_CONFIG_MODE_SANDBVOLT_CONTINUOUS
 
 	return i.connection.WriteBlockData(INA219_REG_CONFIG, []byte{byte(config >> 8), byte(config & 0x00FF)})

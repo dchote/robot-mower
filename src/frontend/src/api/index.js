@@ -5,8 +5,8 @@ import axios from 'axios'
 import store from '../store'
 
 
-const endpointsURL = 'http://' + location.hostname + ':8088/v1/endpoints'
-//const endpointsURL = 'http://robot-mower.local:8088/v1/endpoints'
+//const endpointsURL = 'http://' + location.hostname + ':8088/v1/endpoints'
+const endpointsURL = 'http://robot-mower.local:8088/v1/endpoints'
 
 const fallbackCameraImage = 'https://media.giphy.com/media/3o6vXRxrhj7Ov94Gbu/source.gif'
 
